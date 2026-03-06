@@ -3,20 +3,33 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
-import { Loader2, LogOut, Shield } from "lucide-react"
+import { Loader2, LogOut, Shield, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { profile, isLoading, signOut } = useAuth()
+  const { session, profile, isLoading, signOut, refreshProfile } = useAuth()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  // If profile doesn't load within 12s, show a retry prompt
+  const [profileStalled, setProfileStalled] = useState(false)
 
+  // Redirect to login only if auth is resolved AND there's no session
   useEffect(() => {
-    if (!isLoading && !profile) {
+    if (!isLoading && !session) {
       router.replace("/login")
     }
-  }, [profile, isLoading, router])
+  }, [session, isLoading, router])
+
+  // Detect stalled profile loading: session exists but profile never arrives
+  useEffect(() => {
+    if (!session || profile) {
+      setProfileStalled(false)
+      return
+    }
+    const timer = setTimeout(() => setProfileStalled(true), 12000)
+    return () => clearTimeout(timer)
+  }, [session, profile])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -29,7 +42,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Show spinner only while auth is actively loading
+  // ── Auth still loading: spinner ──
   if (isLoading) {
     return (
       <div className="min-h-screen bg-brand-dark flex items-center justify-center">
@@ -38,11 +51,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Auth resolved but no profile → redirect is in flight, render nothing so we don't flash a spinner
-  if (!profile) {
+  // ── No session: redirect in flight ──
+  if (!session) {
     return null
   }
 
+  // ── Session exists but profile still loading: show loading with retry ──
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-brand-dark flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 text-brand-teal animate-spin" />
+          <p className="text-brand-gray text-sm">Loading profile...</p>
+          {profileStalled && (
+            <div className="flex flex-col items-center gap-3 mt-2">
+              <p className="text-brand-gray/60 text-xs text-center max-w-[250px]">
+                Taking longer than expected. This can happen if the database is waking up.
+              </p>
+              <button
+                onClick={() => {
+                  setProfileStalled(false)
+                  refreshProfile()
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-teal/20 hover:bg-brand-teal/30 text-brand-teal text-xs font-semibold rounded-xl border border-brand-teal/30 transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Fully loaded: render app ──
   return (
     <div className="min-h-screen bg-brand-dark relative overflow-x-hidden">
       {/* Background Mesh */}
