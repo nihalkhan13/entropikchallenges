@@ -35,7 +35,11 @@ export default function DashboardPage() {
     getChallengeConfig(supabase).then((cfg) => {
       setCurrentDay(getCurrentDay(cfg.startDate))
       const today = getTodayPST()
-      if (today < cfg.startDate) {
+      // Validate startDate is a real parseable date before showing the countdown.
+      // An invalid/typo date would produce NaN, causing the countdown to freeze.
+      const startMs = new Date(`${cfg.startDate}T00:00:00-08:00`).getTime()
+      const isValidDate = !isNaN(startMs)
+      if (isValidDate && today < cfg.startDate) {
         setChallengeStarted(false)
         setCountdownTarget(cfg.startDate)
       } else {
@@ -52,7 +56,8 @@ export default function DashboardPage() {
       const now = new Date()
       const target = new Date(`${countdownTarget}T00:00:00-08:00`) // midnight PST
       const diff = target.getTime() - now.getTime()
-      if (diff <= 0) {
+      // Also guard against NaN (invalid target date) — treat as already started
+      if (diff <= 0 || isNaN(diff)) {
         setChallengeStarted(true)
         return
       }
