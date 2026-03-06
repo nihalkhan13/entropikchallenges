@@ -29,12 +29,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  if (isLoading || !profile) {
+  // Show spinner only while auth is actively loading
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-brand-dark flex items-center justify-center">
         <Loader2 className="h-8 w-8 text-brand-teal animate-spin" />
       </div>
     )
+  }
+
+  // Auth resolved but no profile → redirect is in flight, render nothing so we don't flash a spinner
+  if (!profile) {
+    return null
   }
 
   return (

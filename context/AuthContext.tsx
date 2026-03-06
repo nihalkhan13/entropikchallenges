@@ -70,15 +70,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Safety net: if Supabase is slow (e.g. free-tier cold start), never hang forever
+    const loadingTimeout = setTimeout(() => setIsLoading(false), 8000)
+
     // 1. Get the initial session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => setIsLoading(false))
-      } else {
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(loadingTimeout)
+        setSession(session)
+        if (session?.user) {
+          fetchProfile(session.user.id).finally(() => setIsLoading(false))
+        } else {
+          setIsLoading(false)
+        }
+      })
+      .catch(() => {
+        clearTimeout(loadingTimeout)
         setIsLoading(false)
-      }
-    })
+      })
 
     // 2. Subscribe to auth state changes (sign-in, sign-out, token refresh)
     const {
@@ -92,7 +101,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(loadingTimeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signInWithGoogle = async () => {
