@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  /* Entropik Brand Colors */
+  --brand-teal: #5dffdd;
+  --brand-teal-dim: #2aa890;
+  /* For pressed states or borders */
+  --brand-dark: #0f1115;
+  --brand-glass: rgba(21, 24, 33, 0.7);
+  --brand-glass-border: rgba(255, 255, 255, 0.08);
+  --brand-success: #5dffdd;
+  --brand-error: #ff4d4d;
+  /* Muted crimson */
+  --brand-gray: #6b7280;
+
+  --background: var(--brand-dark);
+  --foreground: #ffffff;
+}
+
+@theme inline {
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-glass: var(--brand-glass);
+  --color-brand-success: var(--brand-success);
+  --color-brand-error: var(--brand-error);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  /* Cinematic shadow/gradient background suggestion */
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(93, 255, 221, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(93, 255, 221, 0.03) 0%, transparent 30%);
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: var(--brand-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--brand-glass-border);
+}
+
+.text-glow {
+  text-shadow: 0 0 10px rgba(93, 255, 221, 0.4);
+}
