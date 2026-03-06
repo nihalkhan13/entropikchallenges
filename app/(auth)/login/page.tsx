@@ -1,14 +1,32 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton"
 import { CHALLENGE_COPY } from "@/lib/constants"
 
-export default function LoginPage() {
+/**
+ * Isolated component so useSearchParams() lives inside a Suspense boundary.
+ * Next.js requires this pattern for any client component using useSearchParams().
+ */
+function LoginContent() {
   const searchParams = useSearchParams()
   const authError = searchParams.get("error")
 
+  return (
+    <>
+      {authError && (
+        <p className="text-sm text-brand-error px-1">
+          Sign-in failed. Please try again.
+        </p>
+      )}
+      <GoogleSignInButton />
+    </>
+  )
+}
+
+export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background glow */}
@@ -43,13 +61,10 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {authError && (
-            <p className="text-sm text-brand-error px-1">
-              Sign-in failed. Please try again.
-            </p>
-          )}
-
-          <GoogleSignInButton />
+          {/* Suspense required by Next.js for useSearchParams() */}
+          <Suspense fallback={<GoogleSignInButton />}>
+            <LoginContent />
+          </Suspense>
         </div>
 
         <p className="text-center text-brand-gray/40 text-xs">
