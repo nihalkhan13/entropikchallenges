@@ -3,6 +3,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton"
 import { CHALLENGE_COPY, DEFAULT_START_DATE, DEFAULT_DURATION_DAYS } from "@/lib/constants"
 
+// Prevent static prerendering — this page reads cookies + Supabase at request time
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage() {
   // Redirect authenticated users straight to the dashboard
   const supabase = await createSupabaseServerClient()
