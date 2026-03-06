@@ -27,5 +27,6 @@ export const CHALLENGE_COPY = {
 } as const
 
 /** Default challenge configuration (fallback if DB read fails) */
-export const DEFAULT_START_DATE    = '2026-03-13'
+// TEST BRANCH: override to today so countdown is skipped and check-ins work
+export const DEFAULT_START_DATE    = '2026-03-06'
 export const DEFAULT_DURATION_DAYS = 30

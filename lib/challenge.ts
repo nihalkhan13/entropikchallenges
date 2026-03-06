@@ -165,6 +165,20 @@ export async function getChallengeConfig(
 ): Promise<ChallengeConfig> {
   if (_configCache) return _configCache
 
+  // TEST BRANCH: env var override lets Vercel preview deployments
+  // use a different start date without touching the production DB.
+  const envOverride = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_TEST_START_DATE || '')
+    : (process.env.NEXT_PUBLIC_TEST_START_DATE || '')
+
+  if (envOverride) {
+    _configCache = {
+      startDate:    envOverride,
+      durationDays: DEFAULT_DURATION_DAYS,
+    }
+    return _configCache
+  }
+
   try {
     const { data } = await supabaseClient
       .from('challenge_settings')
