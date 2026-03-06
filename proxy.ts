@@ -2,8 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Next.js middleware (exported as "middleware" so Next.js picks it up).
- * Lives in proxy.ts because Vercel requires only one of middleware.ts / proxy.ts.
+ * Vercel proxy (exported as "proxy" — the name Vercel requires in proxy.ts).
+ * This runs on every request before the page renders.
  *
  * Responsibilities:
  * 1. Refresh the Supabase session on every request (keeps cookies fresh).
@@ -12,7 +12,7 @@ import { NextResponse, type NextRequest } from 'next/server'
  * 2. Protect /(app)/* routes: redirect unauthenticated users to /login.
  * 3. Redirect authenticated users away from /login back to /dashboard.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
