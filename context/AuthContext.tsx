@@ -1,37 +1,28 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react"
-import { Session, User as AuthUser } from "@supabase/supabase-js"
+import { Session } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 import type { Profile } from "@/lib/types"
 
 interface AuthContextType {
-  /** Supabase Auth session (null when unauthenticated) */
   session: Session | null
-  /** The user's profile row from public.profiles */
   profile: Profile | null
-  /** True while the initial session check is in-flight */
   isLoading: boolean
-  /** Redirect to Google OAuth; returns to /auth/callback */
   signInWithGoogle: () => Promise<void>
-  /** Sign out and redirect to landing page */
   signOut: () => Promise<void>
-  /** Refresh the profile row (e.g., after updating notification settings) */
   refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [session, setSession]   = useState<Session | null>(null)
+  const [profile, setProfile]   = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Fetch (or lazily create) the profile row for the currently authenticated user.
-  // The DB trigger handles new sign-ups automatically, but if a user existed in
-  // auth.users before migrations were run they won't have a profile row yet.
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
@@ -44,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // PGRST116 = "no rows returned" — profile doesn't exist yet, create it.
+    // PGRST116 = no rows — profile doesn't exist yet, create it
     if ((error as any).code === "PGRST116" || (error as any).details?.includes("0 rows")) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -58,65 +49,91 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .insert({ id: userId, display_name: displayName })
         .select()
         .single()
-      if (insertError) {
-        console.error("Failed to create profile:", insertError.message, insertError.code)
-        return
-      }
-      setProfile(newProfile as Profile)
+      if (!insertError) setProfile(newProfile as Profile)
       return
     }
 
-    console.error("Error fetching profile:", error.message || error.code || JSON.stringify(error))
+    console.error("fetchProfile error:", error.message || error.code)
   }
 
   useEffect(() => {
-    // Safety net: if Supabase is slow (e.g. free-tier cold start), never hang forever
-    const loadingTimeout = setTimeout(() => setIsLoading(false), 8000)
+    let cancelled = false
 
-    // 1. Get the initial session on mount
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        clearTimeout(loadingTimeout)
-        setSession(session)
-        if (session?.user) {
-          fetchProfile(session.user.id).finally(() => setIsLoading(false))
-        } else {
+    const init = async () => {
+      try {
+        // Step 1: read local session from cookies
+        const { data: { session: localSession } } = await supabase.auth.getSession()
+
+        if (!localSession?.user) {
+          // No session at all — unauthenticated, go to login
+          if (!cancelled) setIsLoading(false)
+          return
+        }
+
+        // Step 2: VERIFY the token is genuinely valid by hitting the Supabase API.
+        // getSession() only reads cookies — it doesn't check if the token is expired
+        // or from a different domain. getUser() makes a real API call to confirm.
+        const { error: userError } = await supabase.auth.getUser()
+
+        if (userError) {
+          // Token is stale/invalid (e.g. leftover cookies from old Vercel preview URL).
+          // Clear it so the user lands on a clean login page.
+          console.warn("Stale session detected, signing out:", userError.message)
+          await supabase.auth.signOut()
+          if (!cancelled) setIsLoading(false)
+          return
+        }
+
+        // Token is valid — load the profile
+        if (!cancelled) {
+          setSession(localSession)
+          await fetchProfile(localSession.user.id)
           setIsLoading(false)
         }
-      })
-      .catch(() => {
-        clearTimeout(loadingTimeout)
-        setIsLoading(false)
-      })
-
-    // 2. Subscribe to auth state changes (sign-in, sign-out, token refresh)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession)
-      if (newSession?.user) {
-        await fetchProfile(newSession.user.id)
-      } else {
-        setProfile(null)
+      } catch (err) {
+        console.error("Auth init error:", err)
+        // On any unexpected error, clear the session and bail to login
+        await supabase.auth.signOut()
+        if (!cancelled) setIsLoading(false)
       }
-    })
+    }
+
+    // Safety timeout: if the whole init hangs (network issue), force-clear after 10s
+    const timeout = setTimeout(async () => {
+      console.warn("Auth init timeout — clearing session")
+      await supabase.auth.signOut()
+      if (!cancelled) setIsLoading(false)
+    }, 10000)
+
+    init().finally(() => clearTimeout(timeout))
+
+    // Listen for sign-in / sign-out / token refresh events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        if (cancelled) return
+        setSession(newSession)
+        if (newSession?.user) {
+          await fetchProfile(newSession.user.id)
+        } else {
+          setProfile(null)
+        }
+      }
+    )
 
     return () => {
-      clearTimeout(loadingTimeout)
+      cancelled = true
+      clearTimeout(timeout)
       subscription.unsubscribe()
     }
   }, [])
 
   const signInWithGoogle = async () => {
-    // Use the explicit env var if set; otherwise fall back to the browser's current origin.
-    // This ensures the redirect URL is always a full absolute URL (required by Google OAuth).
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       (typeof window !== "undefined" ? window.location.origin : "")
-    const redirectTo = `${appUrl}/auth/callback`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: { redirectTo: `${appUrl}/auth/callback` },
     })
     if (error) console.error("Google sign-in error:", error)
   }
@@ -133,9 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider
-      value={{ session, profile, isLoading, signInWithGoogle, signOut, refreshProfile }}
-    >
+    <AuthContext.Provider value={{ session, profile, isLoading, signInWithGoogle, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
