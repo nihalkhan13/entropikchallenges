@@ -96,7 +96,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signInWithGoogle = async () => {
-    const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/auth/callback`
+    // Use the explicit env var if set; otherwise fall back to the browser's current origin.
+    // This ensures the redirect URL is always a full absolute URL (required by Google OAuth).
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "")
+    const redirectTo = `${appUrl}/auth/callback`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
