@@ -55,11 +55,17 @@ export function CheckInButton() {
     } else {
       // Immediately refresh CalendarGrid without waiting for realtime
       window.dispatchEvent(new CustomEvent('checkin-success'))
-      // Fire-and-forget: trigger Squad Pulse notification
+      // Fire-and-forget: trigger Squad Pulse + streak milestone notifications
+      const notifyHeaders = { 'Content-Type': 'application/json' }
       fetch('/api/notify', {
         method: 'POST',
         body: JSON.stringify({ type: 'social-pulse' }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: notifyHeaders,
+      }).catch(() => {/* non-critical */})
+      fetch('/api/notify', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'streak-milestone', userId: profile.id }),
+        headers: notifyHeaders,
       }).catch(() => {/* non-critical */})
     }
     setLoading(false)

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton"
 import { PlankInstructions } from "@/components/challenge/PlankInstructions"
+import { HomeScreenInstructions } from "@/components/challenge/HomeScreenInstructions"
 import { CHALLENGE_COPY } from "@/lib/constants"
 
 /**
@@ -68,8 +69,11 @@ export default function LoginPage() {
           </Suspense>
         </div>
 
-        {/* Plank form instructions */}
-        <PlankInstructions />
+        {/* Plank form instructions + home screen install */}
+        <div className="space-y-3">
+          <PlankInstructions />
+          <HomeScreenInstructions />
+        </div>
 
         <p className="text-center text-brand-gray/40 text-xs">
           BY SIGNING IN YOU ACCEPT THE CHALLENGE TERMS

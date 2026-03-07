@@ -87,14 +87,14 @@ export function calculateUserRank(
     byUser[userId] = { count: 0, firstDate: '9999-12-31' }
   }
 
-  // Build sorted list: completion rate DESC, earliest firstDate ASC
-  const sorted = Object.entries(byUser).sort(([, a], [, b]) => {
-    const rateA = a.count / currentDay
-    const rateB = b.count / currentDay
-    if (rateB !== rateA) return rateB - rateA
-    return a.firstDate.localeCompare(b.firstDate)
-  })
+  // User's own completion rate
+  const userRate = byUser[userId].count / currentDay
 
-  const idx = sorted.findIndex(([id]) => id === userId)
-  return idx === -1 ? sorted.length + 1 : idx + 1
+  // Rank = 1 + number of users who have a STRICTLY HIGHER completion rate
+  // This gives true tied ranks: multiple users at 100% all get #1
+  const betterCount = Object.values(byUser).filter(
+    (u) => u.count / currentDay > userRate
+  ).length
+
+  return betterCount + 1
 }

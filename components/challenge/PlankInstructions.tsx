@@ -64,7 +64,7 @@ export function PlankInstructions() {
             <li className="flex items-start gap-2">
               <span className="text-brand-teal mt-0.5 shrink-0">▸</span>
               <span>
-                <span className="text-white font-semibold">Hold for 2 minutes</span> — breathe steadily, don't hold your breath
+                <span className="text-white font-semibold">Hold and breathe</span> — breathe steadily through the hold, don't hold your breath
               </span>
             </li>
           </ul>

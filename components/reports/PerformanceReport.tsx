@@ -45,11 +45,19 @@ export function PerformanceReport({ stats }: { stats: ReportStats }) {
                 useCORS: true,
             })
 
-            const image = canvas.toDataURL("image/png")
-            const link = document.createElement('a')
-            link.href = image
-            link.download = `entropik-report-${stats.userName}.png`
-            link.click()
+            // Use toBlob + createObjectURL for better cross-platform save dialog support
+            canvas.toBlob((blob) => {
+                if (!blob) return
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `entropik-report-${stats.userName}.png`
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                // Revoke after a short delay to ensure download has started
+                setTimeout(() => URL.revokeObjectURL(url), 2000)
+            }, 'image/png')
         } catch (err) {
             console.error("Export failed", err)
         }
@@ -69,46 +77,44 @@ export function PerformanceReport({ stats }: { stats: ReportStats }) {
                 className="relative w-full max-w-[320px] mx-auto bg-[#0f1115] rounded-[32px] overflow-hidden border border-white/10 shadow-2xl"
                 style={{ aspectRatio: '9/16' }}
             >
-                {/* Layout container fills the card */}
-                <div className="absolute inset-0 p-8 flex flex-col justify-between">
+                {/* Layout container fills the card — evenly spaced top-to-bottom */}
+                <div className="absolute inset-0 px-8 py-10 flex flex-col justify-between">
                     {/* Background Decor */}
                     <div className="absolute top-0 right-0 w-64 h-64 bg-brand-teal/10 rounded-full blur-[80px] -mr-32 -mt-32" />
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-brand-teal/5 rounded-full blur-[80px] -ml-32 -mb-32" />
 
-                    {/* Top section */}
-                    <div className="z-10 space-y-8">
-                        <div className="flex flex-col items-center text-center">
-                            <img src="/logo.png" alt="ENTROPIK" className="h-16 w-auto mb-3 opacity-80" />
-                            <div className="h-px w-12 bg-brand-teal/30 mb-3" />
-                            {/* Challenge name + day number */}
-                            <p className="text-brand-teal text-[10px] uppercase tracking-[0.25em] font-bold">
-                                30 Day Plank Challenge
-                            </p>
-                            <p className="text-white/60 text-xs font-semibold tracking-widest mt-0.5">
-                                Day {stats.currentDay}
-                            </p>
-                            <div className="mt-5">
-                                <h2 className="text-3xl font-black text-white tracking-tighter uppercase text-center leading-none">
-                                    Performance<br /><span className="text-brand-teal">Report</span>
-                                </h2>
-                            </div>
-                        </div>
-
-                        <div className="space-y-6">
-                            <StatRow label="Completion" value={`${stats.completionRate}%`} icon={<TrendingUp className="w-4 h-4" />} />
-                            <StatRow label="Total Days" value={stats.totalDays.toString()} icon={<Calendar className="w-4 h-4" />} />
-                            <StatRow label="Longest Streak" value={`${stats.longestStreak} Days`} icon={<Zap className="w-4 h-4" />} color="teal" />
-                            <StatRow label="Squad Rank" value={`#${stats.rank}`} icon={<Award className="w-4 h-4" />} />
-                        </div>
+                    {/* ── Logo ── */}
+                    <div className="z-10 flex flex-col items-center text-center">
+                        <img src="/logo.png" alt="ENTROPIK" className="h-14 w-auto opacity-80" />
                     </div>
 
-                    {/* Bottom section */}
-                    <div className="z-10 text-center space-y-4">
-                        <div className="py-4 bg-brand-glass border border-brand-glass-border rounded-2xl backdrop-blur-md">
-                            <p className="text-[10px] text-brand-gray uppercase tracking-widest font-bold mb-1">Status</p>
-                            <p className="text-xl font-black text-white italic">ELITE ATHLETE</p>
-                        </div>
-                        <p className="text-xs text-brand-gray/40 font-medium">challenges.entropik.co</p>
+                    {/* ── Report title + challenge name ── */}
+                    <div className="z-10 text-center space-y-2">
+                        <div className="h-px w-12 bg-brand-teal/30 mx-auto mb-3" />
+                        <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">
+                            Performance<br /><span className="text-brand-teal">Report</span>
+                        </h2>
+                        <p className="text-brand-teal text-[10px] uppercase tracking-[0.25em] font-bold mt-3">
+                            30 Day Plank Challenge
+                        </p>
+                        <p className="text-white/50 text-[10px] font-semibold tracking-widest">
+                            Day {stats.currentDay}
+                        </p>
+                    </div>
+
+                    {/* ── Stats ── */}
+                    <div className="z-10 space-y-5">
+                        <StatRow label="Completion"    value={`${stats.completionRate}%`}          icon={<TrendingUp className="w-4 h-4" />} />
+                        <StatRow label="Total Days"    value={stats.totalDays.toString()}           icon={<Calendar className="w-4 h-4" />} />
+                        <StatRow label="Best Streak"   value={`${stats.longestStreak} Days`}        icon={<Zap className="w-4 h-4" />} color="teal" />
+                        <StatRow label="Squad Rank"    value={`#${stats.rank}`}                     icon={<Award className="w-4 h-4" />} />
+                    </div>
+
+                    {/* ── Footer URL ── */}
+                    <div className="z-10 text-center">
+                        <p className="text-xs text-brand-gray/40 font-medium tracking-widest uppercase">
+                            challenges.entropik.co
+                        </p>
                     </div>
                 </div>
             </div>

@@ -8,6 +8,7 @@ import { Leaderboard } from "@/components/challenge/Leaderboard"
 import { ActivityFeed } from "@/components/squad/ActivityFeed"
 import { PerformanceReport } from "@/components/reports/PerformanceReport"
 import { PlankInstructions } from "@/components/challenge/PlankInstructions"
+import { HomeScreenInstructions } from "@/components/challenge/HomeScreenInstructions"
 import { calculatePerformanceStats, calculateUserRank } from "@/lib/stats"
 import { motion, AnimatePresence } from "framer-motion"
 import { Settings, BarChart3 } from "lucide-react"
@@ -210,6 +211,7 @@ export default function DashboardPage() {
         <div className="space-y-3">
           <CheckInButton />
           <PlankInstructions />
+          <HomeScreenInstructions />
         </div>
 
         {/* Activity Feed */}
