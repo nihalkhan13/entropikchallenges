@@ -54,18 +54,35 @@ export function DisplayNameModal({
     setSaving(true)
     setError("")
 
-    const updatePayload: Record<string, unknown> = { display_name: trimmed }
-    if (isOnboarding) updatePayload.has_onboarded = true
+    // Get the current user ID
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id
+    if (!userId) {
+      setError("Not authenticated. Please refresh.")
+      setSaving(false)
+      return
+    }
 
+    // Only update display_name — no has_onboarded column needed in the DB
     const { error: dbErr } = await supabase
       .from("profiles")
-      .update(updatePayload)
-      .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
+      .update({ display_name: trimmed })
+      .eq("id", userId)
 
     if (dbErr) {
+      console.error("DisplayNameModal save error:", dbErr)
       setError("Failed to save. Please try again.")
       setSaving(false)
       return
+    }
+
+    // Mark onboarding complete in localStorage so the modal won't reappear
+    if (isOnboarding) {
+      try {
+        localStorage.setItem(`entropik_onboarded_${userId}`, "1")
+      } catch {
+        // localStorage blocked (e.g. private browsing) — not critical
+      }
     }
 
     setSaving(false)

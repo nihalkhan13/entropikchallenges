@@ -10,7 +10,7 @@ export type Profile = {
   id: string
   display_name: string
   is_admin: boolean
-  has_onboarded: boolean
+  has_onboarded?: boolean   // tracked via localStorage, not required in DB
   notification_settings?: {
     reminders: boolean
     social: boolean

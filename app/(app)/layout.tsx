@@ -12,6 +12,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editNameOpen, setEditNameOpen] = useState(false)
+  // Onboarding: checked against localStorage so no DB migration is required
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   // If profile doesn't load within 12s, show a retry prompt
   const [profileStalled, setProfileStalled] = useState(false)
@@ -43,6 +45,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  // Check if the user has completed onboarding (stored in localStorage)
+  useEffect(() => {
+    if (!profile || !session?.user?.id) return
+    try {
+      const key = `entropik_onboarded_${session.user.id}`
+      setShowOnboarding(!localStorage.getItem(key))
+    } catch {
+      // localStorage blocked — skip onboarding
+      setShowOnboarding(false)
+    }
+  }, [profile?.id, session?.user?.id])
 
   // ── Auth still loading: spinner ──
   if (isLoading) {
@@ -97,23 +111,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* First-login onboarding: ask user to confirm/set their display name */}
-      {!profile.has_onboarded && (
+      {showOnboarding && (
         <DisplayNameModal
           currentName={profile.display_name}
           isOnboarding
-          onSave={() => refreshProfile()}
+          onSave={() => {
+            setShowOnboarding(false)
+            refreshProfile()
+          }}
         />
       )}
 
       {/* Edit name modal (opened from dropdown) */}
-      {profile.has_onboarded && (
-        <DisplayNameModal
-          currentName={profile.display_name}
-          open={editNameOpen}
-          onClose={() => setEditNameOpen(false)}
-          onSave={() => { refreshProfile(); setEditNameOpen(false) }}
-        />
-      )}
+      <DisplayNameModal
+        currentName={profile.display_name}
+        open={editNameOpen}
+        onClose={() => setEditNameOpen(false)}
+        onSave={() => { refreshProfile(); setEditNameOpen(false) }}
+      />
 
       <main className="max-w-md mx-auto min-h-screen flex flex-col p-4 pb-20">
         {/* Header */}
