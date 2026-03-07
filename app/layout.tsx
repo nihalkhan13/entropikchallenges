@@ -8,23 +8,27 @@ import { OneSignalProvider } from "@/components/providers/OneSignalProvider"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export const metadata: Metadata = {
-  title: "30 Day 2 Min Plank Challenge",
-  description: "30 Days of Discipline. Stay Hard.",
+  title: "30 Day Plank Challenge",
+  description: "30 Days of Discipline. Lock In.",
   manifest: "/manifest.json",
   icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+    ],
     apple: "/apple-touch-icon.png",
+    shortcut: "/favicon.png",
   },
   openGraph: {
-    title: "30 Day 2 Min Plank Challenge",
+    title: "30 Day Plank Challenge",
     description: "Can you hold a 2-minute plank every day for 30 days? Join the squad.",
     url: process.env.NEXT_PUBLIC_APP_URL,
-    siteName: "30 Day 2 Min Plank Challenge",
+    siteName: "30 Day Plank Challenge",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "30 Day 2 Min Plank Challenge",
+    title: "30 Day Plank Challenge",
     description: "Can you hold a 2-minute plank every day for 30 days? Join the squad.",
     images: ["/og-image.png"],
   },

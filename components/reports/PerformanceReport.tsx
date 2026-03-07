@@ -1,8 +1,7 @@
 "use client"
 
-import { useRef, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Award, Zap, Calendar, TrendingUp, Download } from "lucide-react"
+import { useRef, useEffect, useState } from "react"
+import { Award, Zap, Calendar, TrendingUp, Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 
@@ -24,42 +23,82 @@ interface ReportStats {
 
 export function PerformanceReport({ stats }: { stats: ReportStats }) {
     const reportRef = useRef<HTMLDivElement>(null)
+    const [scriptReady, setScriptReady] = useState(false)
+    const [downloading, setDownloading] = useState(false)
 
+    // Load html2canvas and mark ready on load
     useEffect(() => {
+        if (typeof window.html2canvas === 'function') { setScriptReady(true); return }
         const script = document.createElement('script')
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
         script.async = true
+        script.onload = () => setScriptReady(true)
+        script.onerror = () => console.error('html2canvas failed to load')
         document.head.appendChild(script)
-        return () => {
-            if (document.head.contains(script)) document.head.removeChild(script)
-        }
+        return () => { if (document.head.contains(script)) document.head.removeChild(script) }
     }, [])
 
     const handleDownload = async () => {
-        if (!reportRef.current || !window.html2canvas) return
+        if (!reportRef.current) return
+        if (!scriptReady || typeof window.html2canvas !== 'function') {
+            alert('Still loading — please try again in a moment.')
+            return
+        }
 
+        setDownloading(true)
         try {
             const canvas = await window.html2canvas(reportRef.current, {
                 backgroundColor: '#0f1115',
                 scale: 2,
                 useCORS: true,
+                allowTaint: false,
+                logging: false,
             })
 
-            // Use toBlob + createObjectURL for better cross-platform save dialog support
-            canvas.toBlob((blob) => {
-                if (!blob) return
-                const url = URL.createObjectURL(blob)
-                const link = document.createElement('a')
-                link.href = url
-                link.download = `entropik-report-${stats.userName}.png`
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-                // Revoke after a short delay to ensure download has started
-                setTimeout(() => URL.revokeObjectURL(url), 2000)
-            }, 'image/png')
+            const filename = `entropik-report-${stats.userName.replace(/\s+/g, '-')}.png`
+
+            // Primary: blob + object URL (works on desktop + Android Chrome)
+            if (canvas.toBlob) {
+                canvas.toBlob((blob) => {
+                    if (!blob) { fallbackOpen(canvas); return }
+                    const url = URL.createObjectURL(blob)
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = filename
+                    link.style.display = 'none'
+                    document.body.appendChild(link)
+                    link.click()
+                    // Small delay to ensure the browser registers the click
+                    setTimeout(() => {
+                        document.body.removeChild(link)
+                        URL.revokeObjectURL(url)
+                    }, 3000)
+                }, 'image/png')
+            } else {
+                fallbackOpen(canvas)
+            }
         } catch (err) {
-            console.error("Export failed", err)
+            console.error('Export failed', err)
+            alert('Download failed. Please take a screenshot instead.')
+        } finally {
+            setDownloading(false)
+        }
+    }
+
+    // Fallback for iOS Safari: open the image in a new tab so the user can
+    // long-press → "Add to Photos" / "Save Image"
+    const fallbackOpen = (canvas: HTMLCanvasElement) => {
+        const dataURL = canvas.toDataURL('image/png')
+        const w = window.open('', '_blank')
+        if (w) {
+            w.document.write(`
+                <html><body style="margin:0;background:#0f1115;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${dataURL}" style="max-width:100%;border-radius:24px;" />
+                <p style="position:fixed;bottom:20px;left:0;right:0;text-align:center;color:#aaa;font-family:sans-serif;font-size:12px;">
+                    Long-press the image → Save to Photos
+                </p>
+                </body></html>
+            `)
         }
     }
 
@@ -72,81 +111,107 @@ export function PerformanceReport({ stats }: { stats: ReportStats }) {
             </div>
 
             {/* The actual exportable card — strict 9:16 portrait */}
+            {/* All colors use explicit hex/rgba so html2canvas captures them correctly */}
             <div
                 ref={reportRef}
-                className="relative w-full max-w-[320px] mx-auto bg-[#0f1115] rounded-[32px] overflow-hidden border border-white/10 shadow-2xl"
-                style={{ aspectRatio: '9/16' }}
+                className="relative w-full max-w-[320px] mx-auto rounded-[32px] overflow-hidden shadow-2xl"
+                style={{ aspectRatio: '9/16', background: '#0f1115', border: '1px solid rgba(255,255,255,0.1)' }}
             >
                 {/* Layout container fills the card — evenly spaced top-to-bottom */}
-                <div className="absolute inset-0 px-8 py-10 flex flex-col justify-between">
+                <div className="absolute inset-0 flex flex-col justify-between" style={{ padding: '40px 32px' }}>
                     {/* Background Decor */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand-teal/10 rounded-full blur-[80px] -mr-32 -mt-32" />
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-brand-teal/5 rounded-full blur-[80px] -ml-32 -mb-32" />
+                    <div className="absolute top-0 right-0 w-64 h-64 rounded-full -mr-32 -mt-32"
+                        style={{ background: 'rgba(93,255,221,0.08)', filter: 'blur(80px)' }} />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full -ml-32 -mb-32"
+                        style={{ background: 'rgba(93,255,221,0.04)', filter: 'blur(80px)' }} />
 
                     {/* ── Logo ── */}
                     <div className="z-10 flex flex-col items-center text-center">
-                        <img src="/logo.png" alt="ENTROPIK" className="h-14 w-auto opacity-80" />
+                        {/* crossOrigin needed so html2canvas can read the image */}
+                        <img
+                            src="/logo.png"
+                            alt="ENTROPIK"
+                            crossOrigin="anonymous"
+                            style={{ height: '56px', width: 'auto', opacity: 0.8 }}
+                        />
                     </div>
 
                     {/* ── Report title + challenge name ── */}
-                    <div className="z-10 text-center space-y-2">
-                        <div className="h-px w-12 bg-brand-teal/30 mx-auto mb-3" />
-                        <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">
-                            Performance<br /><span className="text-brand-teal">Report</span>
+                    <div className="z-10 text-center">
+                        <div style={{ height: '1px', width: '48px', background: 'rgba(93,255,221,0.3)', margin: '0 auto 12px' }} />
+                        <h2 style={{ fontSize: '28px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.05em', textTransform: 'uppercase', lineHeight: 1, margin: 0 }}>
+                            Performance<br /><span style={{ color: '#5dffdd' }}>Report</span>
                         </h2>
-                        <p className="text-brand-teal text-[10px] uppercase tracking-[0.25em] font-bold mt-3">
+                        <p style={{ color: '#5dffdd', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 700, marginTop: '12px' }}>
                             30 Day Plank Challenge
                         </p>
-                        <p className="text-white/50 text-[10px] font-semibold tracking-widest">
+                        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.15em', marginTop: '4px' }}>
                             Day {stats.currentDay}
                         </p>
                     </div>
 
                     {/* ── Stats ── */}
-                    <div className="z-10 space-y-5">
-                        <StatRow label="Completion"    value={`${stats.completionRate}%`}          icon={<TrendingUp className="w-4 h-4" />} />
-                        <StatRow label="Total Days"    value={stats.totalDays.toString()}           icon={<Calendar className="w-4 h-4" />} />
-                        <StatRow label="Best Streak"   value={`${stats.longestStreak} Days`}        icon={<Zap className="w-4 h-4" />} color="teal" />
-                        <StatRow label="Squad Rank"    value={`#${stats.rank}`}                     icon={<Award className="w-4 h-4" />} />
+                    <div className="z-10" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <InlineStatRow label="Completion"  value={`${stats.completionRate}%`}    teal={false} />
+                        <InlineStatRow label="Total Days"  value={stats.totalDays.toString()}     teal={false} />
+                        <InlineStatRow label="Best Streak" value={`${stats.longestStreak} Days`}  teal={true} />
+                        <InlineStatRow label="Squad Rank"  value={`#${stats.rank}`}               teal={false} />
                     </div>
 
                     {/* ── Footer URL ── */}
                     <div className="z-10 text-center">
-                        <p className="text-xs text-brand-gray/40 font-medium tracking-widest uppercase">
+                        <p style={{ color: 'rgba(170,170,170,0.4)', fontSize: '11px', fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                             challenges.entropik.co
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Download button only */}
+            {/* Download button */}
             <Button
                 onClick={handleDownload}
+                disabled={downloading}
                 className="w-full gap-2"
                 variant="secondary"
             >
-                <Download className="w-4 h-4" /> Download Report
+                {downloading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
+                    : <><Download className="w-4 h-4" /> Download Report</>
+                }
             </Button>
+
+            {/* iOS hint shown while downloading */}
+            {downloading && (
+                <p className="text-center text-brand-gray/40 text-xs">
+                    If a new tab opens, long-press the image → Save to Photos
+                </p>
+            )}
         </div>
     )
 }
 
-function StatRow({ label, value, icon, color = "gray" }: { label: string, value: string, icon: React.ReactNode, color?: "gray" | "teal" }) {
+// Inline-styled stat row so html2canvas captures it reliably (no CSS variables)
+function InlineStatRow({ label, value, teal }: { label: string; value: string; teal: boolean }) {
     return (
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center border",
-                    color === "teal" ? "bg-brand-teal/20 border-brand-teal/30 text-brand-teal" : "bg-white/5 border-white/10 text-brand-gray"
-                )}>
-                    {icon}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                    width: '32px', height: '32px', borderRadius: '8px', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', border: '1px solid',
+                    background: teal ? 'rgba(93,255,221,0.15)' : 'rgba(255,255,255,0.05)',
+                    borderColor: teal ? 'rgba(93,255,221,0.3)' : 'rgba(255,255,255,0.1)',
+                    color: teal ? '#5dffdd' : '#888',
+                    fontSize: '12px', fontWeight: 700,
+                }}>
+                    {label.charAt(0)}
                 </div>
-                <span className="text-sm font-bold text-brand-gray uppercase tracking-tight">{label}</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {label}
+                </span>
             </div>
-            <span className={cn(
-                "text-xl font-black italic",
-                color === "teal" ? "text-brand-teal" : "text-white"
-            )}>{value}</span>
+            <span style={{ fontSize: '20px', fontWeight: 900, fontStyle: 'italic', color: teal ? '#5dffdd' : '#ffffff' }}>
+                {value}
+            </span>
         </div>
     )
 }
