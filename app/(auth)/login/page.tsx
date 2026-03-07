@@ -4,6 +4,7 @@ import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton"
+import { PlankInstructions } from "@/components/challenge/PlankInstructions"
 import { CHALLENGE_COPY } from "@/lib/constants"
 
 /**
@@ -66,6 +67,9 @@ export default function LoginPage() {
             <LoginContent />
           </Suspense>
         </div>
+
+        {/* Plank form instructions */}
+        <PlankInstructions />
 
         <p className="text-center text-brand-gray/40 text-xs">
           BY SIGNING IN YOU ACCEPT THE CHALLENGE TERMS

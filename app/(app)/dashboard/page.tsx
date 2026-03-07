@@ -7,7 +7,8 @@ import { GroupProgress } from "@/components/challenge/GroupProgress"
 import { Leaderboard } from "@/components/challenge/Leaderboard"
 import { ActivityFeed } from "@/components/squad/ActivityFeed"
 import { PerformanceReport } from "@/components/reports/PerformanceReport"
-import { calculatePerformanceStats } from "@/lib/stats"
+import { PlankInstructions } from "@/components/challenge/PlankInstructions"
+import { calculatePerformanceStats, calculateUserRank } from "@/lib/stats"
 import { motion, AnimatePresence } from "framer-motion"
 import { Settings, BarChart3 } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -81,18 +82,22 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     if (!profile) return
     const cfg = await getChallengeConfig(supabase)
-    const { data: checkins } = await supabase
-      .from('checkins')
-      .select('date')
-      .eq('user_id', profile.id)
+    const day = getCurrentDay(cfg.startDate)
+
+    // Fetch user's own check-ins AND all check-ins (for accurate rank calculation)
+    const [{ data: checkins }, { data: allCheckins }] = await Promise.all([
+      supabase.from('checkins').select('date').eq('user_id', profile.id),
+      supabase.from('checkins').select('user_id, date'),
+    ])
 
     if (checkins) {
-      const day = getCurrentDay(cfg.startDate)
+      const rank = allCheckins ? calculateUserRank(profile.id, allCheckins, day) : 1
       const calculated = calculatePerformanceStats(
         profile.display_name,
         checkins,
         cfg.startDate,
-        day
+        day,
+        rank,
       )
       setStats(calculated)
     }
@@ -150,7 +155,7 @@ export default function DashboardPage() {
             </div>
 
             <p className="text-brand-gray/30 text-[10px] uppercase tracking-widest font-semibold">
-              Stay Ready. Stay Hard.
+              Stay Ready. Lock In.
             </p>
           </div>
         </div>
@@ -201,9 +206,10 @@ export default function DashboardPage() {
         {/* Group Stats */}
         <GroupProgress />
 
-        {/* Main Action */}
-        <div>
+        {/* Main Action + Plank Instructions */}
+        <div className="space-y-3">
           <CheckInButton />
+          <PlankInstructions />
         </div>
 
         {/* Activity Feed */}

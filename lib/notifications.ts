@@ -1,4 +1,4 @@
-const ONESIGNAL_APP_ID = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "af9ce9fc-ad08-4b55-9952-e91f6985b62f";
+const ONESIGNAL_APP_ID = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 
 export async function sendPushNotification({
@@ -12,8 +12,12 @@ export async function sendPushNotification({
     message: string;
     url?: string;
 }) {
+    if (!ONESIGNAL_APP_ID) {
+        console.warn("NEXT_PUBLIC_ONESIGNAL_APP_ID is not set. Skipping push notification.");
+        return;
+    }
     if (!ONESIGNAL_REST_API_KEY) {
-        console.warn("ONE_SIGNAL_REST_API_KEY is not set. Skipping push notification.");
+        console.warn("ONESIGNAL_REST_API_KEY is not set. Skipping push notification.");
         return;
     }
 

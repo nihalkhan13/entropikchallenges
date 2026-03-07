@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
-import { Loader2, LogOut, Shield, RefreshCw } from "lucide-react"
+import { Loader2, LogOut, Shield, RefreshCw, UserPen } from "lucide-react"
 import Link from "next/link"
+import { DisplayNameModal } from "@/components/profile/DisplayNameModal"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, profile, isLoading, signOut, refreshProfile } = useAuth()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editNameOpen, setEditNameOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   // If profile doesn't load within 12s, show a retry prompt
   const [profileStalled, setProfileStalled] = useState(false)
@@ -94,6 +96,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/5 rounded-full blur-[120px]" />
       </div>
 
+      {/* First-login onboarding: ask user to confirm/set their display name */}
+      {!profile.has_onboarded && (
+        <DisplayNameModal
+          currentName={profile.display_name}
+          isOnboarding
+          onSave={() => refreshProfile()}
+        />
+      )}
+
+      {/* Edit name modal (opened from dropdown) */}
+      {profile.has_onboarded && (
+        <DisplayNameModal
+          currentName={profile.display_name}
+          open={editNameOpen}
+          onClose={() => setEditNameOpen(false)}
+          onSave={() => { refreshProfile(); setEditNameOpen(false) }}
+        />
+      )}
+
       <main className="max-w-md mx-auto min-h-screen flex flex-col p-4 pb-20">
         {/* Header */}
         <header className="flex items-center justify-between py-4 mb-6">
@@ -119,11 +140,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Dropdown */}
             {menuOpen && (
               <div className="absolute right-0 top-full mt-2 w-44 bg-[#1a1f26] border border-brand-glass-border rounded-xl shadow-xl overflow-hidden z-50">
+                {/* Edit Profile */}
+                <button
+                  onClick={() => { setMenuOpen(false); setEditNameOpen(true) }}
+                  className="flex items-center gap-2.5 px-4 py-3 text-xs text-brand-gray hover:bg-white/5 hover:text-brand-teal transition-colors w-full text-left"
+                >
+                  <UserPen className="w-3.5 h-3.5 shrink-0" />
+                  Edit Profile
+                </button>
+
                 {profile.is_admin && (
                   <Link
                     href="/admin"
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-3 text-xs text-brand-gray hover:bg-white/5 hover:text-brand-teal transition-colors"
+                    className="flex items-center gap-2.5 px-4 py-3 text-xs text-brand-gray hover:bg-white/5 hover:text-brand-teal transition-colors border-t border-brand-glass-border/50"
                   >
                     <Shield className="w-3.5 h-3.5 shrink-0" />
                     Admin Panel

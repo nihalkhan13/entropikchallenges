@@ -10,6 +10,7 @@ export type Profile = {
   id: string
   display_name: string
   is_admin: boolean
+  has_onboarded: boolean
   notification_settings?: {
     reminders: boolean
     social: boolean

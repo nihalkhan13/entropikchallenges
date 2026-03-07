@@ -9,11 +9,19 @@ import { Input } from "@/components/ui/Input"
 import { useRouter } from "next/navigation"
 import { invalidateChallengeConfigCache } from "@/lib/challenge"
 
+type UserRow = {
+  id: string
+  display_name: string
+  is_admin: boolean
+  created_at: string
+  email?: string
+}
+
 export default function AdminPage() {
   const { profile, isLoading } = useAuth()
   const router = useRouter()
 
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<UserRow[]>([])
   const [startDate, setStartDate] = useState("")
   const [durationDays, setDurationDays] = useState("")
   const [settingsSaving, setSettingsSaving] = useState(false)
@@ -31,11 +39,23 @@ export default function AdminPage() {
   }, [profile, isLoading])
 
   const fetchData = async () => {
-    const [{ data: usersData }, { data: settings }] = await Promise.all([
+    // Fetch profiles + challenge settings in parallel; also fetch emails via admin API
+    const [{ data: usersData }, { data: settings }, emailsRes] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at"),
       supabase.from("challenge_settings").select("key, value"),
+      fetch("/api/admin/users"),
     ])
-    if (usersData) setUsers(usersData)
+
+    // Build a map of id → email from the admin API
+    let emailMap: Record<string, string> = {}
+    if (emailsRes.ok) {
+      const { users: authUsers } = await emailsRes.json() as { users: { id: string; email: string }[] }
+      for (const u of authUsers) emailMap[u.id] = u.email
+    }
+
+    if (usersData) {
+      setUsers(usersData.map((u: any) => ({ ...u, email: emailMap[u.id] ?? "" })))
+    }
     if (settings) {
       const map: Record<string, string> = {}
       for (const row of settings) map[row.key] = row.value
@@ -79,7 +99,6 @@ export default function AdminPage() {
       if (err1 || err2) {
         setSettingsMsg({ type: "err", text: err1 ?? err2 })
       } else {
-        // Bust the in-memory cache so next getChallengeConfig() fetches fresh data
         invalidateChallengeConfigCache()
         setSettingsMsg({ type: "ok", text: "✓ Settings saved — changes take effect immediately" })
       }
@@ -184,18 +203,25 @@ export default function AdminPage() {
 
         <div className="space-y-2">
           {users.map((u) => (
-            <div key={u.id} className="flex justify-between items-center p-2 bg-white/5 rounded">
-              <span className="text-sm font-mono text-gray-300">
-                {u.display_name}
-                {u.is_admin && (
-                  <span className="ml-2 text-[10px] text-brand-teal uppercase tracking-widest">admin</span>
+            <div key={u.id} className="flex justify-between items-start p-3 bg-white/5 rounded-xl gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-gray-200 truncate">
+                    {u.display_name}
+                  </span>
+                  {u.is_admin && (
+                    <span className="text-[10px] text-brand-teal uppercase tracking-widest shrink-0">admin</span>
+                  )}
+                </div>
+                {u.email && (
+                  <p className="text-[11px] text-brand-gray/50 truncate mt-0.5">{u.email}</p>
                 )}
-              </span>
+              </div>
               <Button
                 onClick={() => handleDeleteUser(u.id, u.display_name)}
                 variant="danger"
                 size="sm"
-                className="h-8 text-xs"
+                className="h-8 text-xs shrink-0"
                 disabled={deletingId === u.id || u.id === profile?.id}
               >
                 {deletingId === u.id ? "Removing…" : u.id === profile?.id ? "You" : "Remove"}

@@ -21,7 +21,7 @@ export const CHALLENGE_COPY = {
   CTA_CONFIRM:        'TAP TO CONFIRM',
   COMPLETE_LABEL:     'COMPLETE',
   APP_TITLE:          '30 Day 2 Min Plank Challenge',
-  APP_TAGLINE:        '30 Days of Discipline. Stay Hard.',
+  APP_TAGLINE:        '30 Days of Discipline. Lock In.',
   FOOTER_QUOTE:       'The floor is your altar. Show up every day.',
   SQUAD_PULSE_HEADER: 'Squad Pulse',
 } as const
