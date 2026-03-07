@@ -6,13 +6,13 @@ import { motion } from "framer-motion"
 
 export default function ReportPreviewPage() {
     const mockStats = {
-        totalDays: 30,
-        completedDays: 28,
+        totalDays: 28,
         missedDays: 2,
         longestStreak: 15,
         completionRate: 93,
         rank: 12,
-        userName: "VERIFICATION BOT"
+        userName: "VERIFICATION BOT",
+        currentDay: 30,
     }
 
     return (
