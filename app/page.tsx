@@ -51,7 +51,7 @@ export default async function HomePage() {
           <ul className="space-y-2 text-brand-gray/80 text-xs leading-relaxed">
             <li className="flex items-start gap-2">
               <span className="text-brand-teal mt-0.5">▸</span>
-              Hold a plank every single day for {durationDays} days
+              Hold a 2 min plank every single day for {durationDays} days
             </li>
             <li className="flex items-start gap-2">
               <span className="text-brand-teal mt-0.5">▸</span>

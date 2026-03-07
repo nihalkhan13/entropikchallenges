@@ -17,7 +17,7 @@ export const EMOJIS = ['🔥', '💪', '⚡', '👀', '💯', '👊'] as const
 
 /** All copy strings for the 30-Day Plank Challenge */
 export const CHALLENGE_COPY = {
-  CTA_BUTTON:         'I DID MY PLANK',
+  CTA_BUTTON:         'I completed my 2 min plank',
   CTA_CONFIRM:        'TAP TO CONFIRM',
   COMPLETE_LABEL:     'COMPLETE',
   APP_TITLE:          '30 Day Plank Challenge',
