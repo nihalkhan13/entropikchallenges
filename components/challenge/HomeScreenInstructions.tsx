@@ -31,7 +31,7 @@ export function HomeScreenInstructions() {
 
       {/* Collapsible content */}
       {open && (
-        <div className="px-4 pb-5 pt-3 bg-brand-glass/50 space-y-5">
+        <div className="px-4 pb-5 pt-4 bg-brand-glass/50 space-y-4">
           <p className="text-[11px] text-brand-gray/60 leading-relaxed">
             Install this app on your home screen for the fastest daily check-in experience — no browser needed.
           </p>
@@ -41,23 +41,18 @@ export function HomeScreenInstructions() {
             <p className="text-xs font-bold text-brand-teal uppercase tracking-widest">
               iPhone / iPad (Safari)
             </p>
-            <ol className="space-y-1.5 text-xs text-brand-gray/80 leading-relaxed list-none">
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">1.</span>
-                Open this site in <span className="text-white font-semibold">Safari</span> (not Chrome or another browser)
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">2.</span>
-                Tap the <span className="text-white font-semibold">Share</span> button at the bottom of the screen (box with an arrow pointing up)
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">3.</span>
-                Scroll down and tap <span className="text-white font-semibold">Add to Home Screen</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">4.</span>
-                Tap <span className="text-white font-semibold">Add</span> — the app icon will appear on your home screen
-              </li>
+            <ol className="space-y-2 list-none">
+              {[
+                <>Open this site in <strong className="text-white font-semibold">Safari</strong> (not Chrome or another browser)</>,
+                <>Tap the <strong className="text-white font-semibold">Share</strong> button at the bottom of the screen (box with an arrow pointing up)</>,
+                <>Scroll down and tap <strong className="text-white font-semibold">Add to Home Screen</strong></>,
+                <>Tap <strong className="text-white font-semibold">Add</strong> — the app icon will appear on your home screen</>,
+              ].map((text, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-brand-gray/80 leading-snug">
+                  <span className="text-brand-teal font-bold shrink-0 w-4">{i + 1}.</span>
+                  <span className="flex-1">{text}</span>
+                </li>
+              ))}
             </ol>
           </div>
 
@@ -66,23 +61,18 @@ export function HomeScreenInstructions() {
             <p className="text-xs font-bold text-brand-teal uppercase tracking-widest">
               Android (Chrome)
             </p>
-            <ol className="space-y-1.5 text-xs text-brand-gray/80 leading-relaxed list-none">
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">1.</span>
-                Open this site in <span className="text-white font-semibold">Chrome</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">2.</span>
-                Tap the <span className="text-white font-semibold">menu</span> (three dots ⋮) in the top-right corner
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">3.</span>
-                Tap <span className="text-white font-semibold">Add to Home screen</span> or <span className="text-white font-semibold">Install app</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-teal font-bold shrink-0">4.</span>
-                Tap <span className="text-white font-semibold">Add</span> to confirm
-              </li>
+            <ol className="space-y-2 list-none">
+              {[
+                <>Open this site in <strong className="text-white font-semibold">Chrome</strong></>,
+                <>Tap the <strong className="text-white font-semibold">menu</strong> (three dots ⋮) in the top-right corner</>,
+                <>Tap <strong className="text-white font-semibold">Add to Home screen</strong> or <strong className="text-white font-semibold">Install app</strong></>,
+                <>Tap <strong className="text-white font-semibold">Add</strong> to confirm</>,
+              ].map((text, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-brand-gray/80 leading-snug">
+                  <span className="text-brand-teal font-bold shrink-0 w-4">{i + 1}.</span>
+                  <span className="flex-1">{text}</span>
+                </li>
+              ))}
             </ol>
           </div>
 
