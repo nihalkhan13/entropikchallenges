@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [challengeStarted, setChallengeStarted] = useState(true) // true by default → no flash
   const [countdownTarget, setCountdownTarget] = useState("")
   const [countdown, setCountdown] = useState<Countdown>({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+  const [signupCount, setSignupCount] = useState<number | null>(null)
 
   // Load config and decide whether to show countdown
   useEffect(() => {
@@ -44,6 +45,11 @@ export default function DashboardPage() {
       if (isValidDate && today < cfg.startDate) {
         setChallengeStarted(false)
         setCountdownTarget(cfg.startDate)
+        // Fetch signup count for the pre-launch card
+        supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .then(({ count }) => setSignupCount(count ?? 0))
       } else {
         setChallengeStarted(true)
       }
@@ -123,7 +129,7 @@ export default function DashboardPage() {
           <div className="pointer-events-auto bg-[#0d1014]/95 backdrop-blur-md border border-brand-teal/20 rounded-2xl p-8 text-center space-y-5 w-full max-w-[300px] shadow-[0_0_60px_rgba(93,255,221,0.12)]">
             <div>
               <p className="text-brand-teal text-[10px] uppercase tracking-[0.3em] font-bold mb-1">
-                Challenge begins in
+                Challenge begins on
               </p>
               {startLabel && (
                 <p className="text-brand-gray/40 text-[10px] uppercase tracking-widest">
@@ -154,6 +160,17 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+
+            {signupCount !== null && (
+              <div className="border-t border-brand-glass-border pt-4 space-y-0.5">
+                <p className="text-3xl font-black text-brand-teal tabular-nums leading-none">
+                  {signupCount}
+                </p>
+                <p className="text-[10px] text-brand-gray/40 uppercase tracking-widest font-semibold">
+                  {signupCount === 1 ? 'athlete' : 'athletes'} signed up
+                </p>
+              </div>
+            )}
 
             <p className="text-brand-gray/30 text-[10px] uppercase tracking-widest font-semibold">
               Stay Ready. Lock In.
