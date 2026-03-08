@@ -32,6 +32,14 @@ export default function DashboardPage() {
   const [countdownTarget, setCountdownTarget] = useState("")
   const [countdown, setCountdown] = useState<Countdown>({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [signupCount, setSignupCount] = useState<number | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.origin).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    })
+  }
 
   // Load config and decide whether to show countdown
   useEffect(() => {
@@ -162,13 +170,42 @@ export default function DashboardPage() {
             </div>
 
             {signupCount !== null && (
-              <div className="border-t border-brand-glass-border pt-4 space-y-0.5">
-                <p className="text-3xl font-black text-brand-teal tabular-nums leading-none">
-                  {signupCount}
+              <div className="border-t border-brand-glass-border pt-4 space-y-3">
+                {/* One-line counter */}
+                <p className="flex items-baseline justify-center gap-2 flex-wrap">
+                  <span className="text-3xl font-black text-brand-teal tabular-nums leading-none">
+                    {signupCount}
+                  </span>
+                  <span className="text-[10px] text-brand-gray/40 uppercase tracking-widest font-semibold">
+                    {signupCount === 1 ? 'athlete' : 'athletes'} currently signed up
+                  </span>
                 </p>
-                <p className="text-[10px] text-brand-gray/40 uppercase tracking-widest font-semibold">
-                  {signupCount === 1 ? 'athlete' : 'athletes'} signed up
-                </p>
+
+                {/* Share link */}
+                <button
+                  onClick={copyLink}
+                  className="w-full flex items-center justify-center gap-2 bg-brand-teal/10 hover:bg-brand-teal/20 border border-brand-teal/30 rounded-xl px-3 py-2.5 transition-colors group"
+                >
+                  {linkCopied ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 text-brand-teal shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-brand-teal">
+                        Link copied!
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5 text-brand-teal shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-brand-teal">
+                        Share with friends
+                      </span>
+                    </>
+                  )}
+                </button>
               </div>
             )}
 
