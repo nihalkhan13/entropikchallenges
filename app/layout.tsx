@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/context/AuthContext"
 import { OneSignalProvider } from "@/components/providers/OneSignalProvider"
+import { ServiceWorkerProvider } from "@/components/providers/ServiceWorkerProvider"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
@@ -50,6 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased font-sans`} suppressHydrationWarning>
+        <ServiceWorkerProvider />
         <AuthProvider>
           <OneSignalProvider>
             {children}

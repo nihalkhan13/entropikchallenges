@@ -2,7 +2,9 @@
     "name": "Entropik Challenges",
     "short_name": "Entropik",
     "description": "30 Days of Discipline. Lock In.",
+    "id": "/",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#0f1115",
     "theme_color": "#0f1115",
@@ -17,7 +19,13 @@
             "src": "/apple-touch-icon.png",
             "sizes": "1024x1024",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
+        },
+        {
+            "src": "/apple-touch-icon.png",
+            "sizes": "1024x1024",
+            "type": "image/png",
+            "purpose": "maskable"
         }
     ]
 }
