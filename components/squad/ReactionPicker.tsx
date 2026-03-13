@@ -18,6 +18,12 @@ export function ReactionPicker({ activityId }: { activityId: string }) {
     setLoading(true)
     setIsOpen(false)
 
+    // Dispatch immediately so ReactionsList can show the emoji without waiting
+    // for the DB round-trip (works even when Supabase Realtime isn't enabled).
+    window.dispatchEvent(new CustomEvent('reaction-added', {
+      detail: { activityId, emoji, userId: profile.id },
+    }))
+
     try {
       await supabase
         .from('reactions')

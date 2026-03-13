@@ -19,12 +19,44 @@ export function ReactionsList({ activityId }: { activityId: string }) {
         table: 'reactions',
         filter: `activity_id=eq.${activityId}`,
       }, (payload) => {
-        setReactions((prev) => [...prev, payload.new as Reaction])
+        const incoming = payload.new as Reaction
+        setReactions((prev) => {
+          // Replace any optimistic placeholder for the same user+emoji, then
+          // add the real DB row. Avoids doubles when both paths fire.
+          const deduped = prev.filter(
+            (r) => !(r.id.startsWith('optimistic-') && r.user_id === incoming.user_id && r.emoji === incoming.emoji)
+          )
+          if (deduped.some((r) => r.id === incoming.id)) return deduped
+          return [...deduped, incoming]
+        })
       })
       .subscribe()
 
+    // Optimistic path: update immediately from the custom event fired by
+    // ReactionPicker — no DB round-trip needed for the picker's own user.
+    const handleReactionAdded = (e: Event) => {
+      const { activityId: eId, emoji, userId } = (e as CustomEvent<{ activityId: string; emoji: string; userId: string }>).detail
+      if (eId !== activityId) return
+      setReactions((prev) => {
+        // Skip if this user already reacted with this emoji (real or optimistic)
+        if (prev.some((r) => r.user_id === userId && r.emoji === emoji)) return prev
+        return [
+          ...prev,
+          {
+            id: `optimistic-${Date.now()}`,
+            activity_id: activityId,
+            user_id: userId,
+            emoji,
+            created_at: new Date().toISOString(),
+          } as Reaction,
+        ]
+      })
+    }
+    window.addEventListener('reaction-added', handleReactionAdded)
+
     return () => {
       supabase.removeChannel(channel)
+      window.removeEventListener('reaction-added', handleReactionAdded)
     }
   }, [activityId])
 

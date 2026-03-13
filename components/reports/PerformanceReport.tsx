@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useRef, useEffect, useState, ReactNode } from "react"
 import { Award, Zap, Calendar, TrendingUp, Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
@@ -152,10 +152,10 @@ export function PerformanceReport({ stats }: { stats: ReportStats }) {
 
                     {/* ── Stats ── */}
                     <div className="z-10" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <InlineStatRow label="Completion"  value={`${stats.completionRate}%`}    teal={false} />
-                        <InlineStatRow label="Total Days"  value={stats.totalDays.toString()}     teal={false} />
-                        <InlineStatRow label="Best Streak" value={`${stats.longestStreak} Days`}  teal={true} />
-                        <InlineStatRow label="Squad Rank"  value={`#${stats.rank}`}               teal={false} />
+                        <InlineStatRow label="Completion"  value={`${stats.completionRate}%`}    teal={false} icon={<TrendingUp size={16} color="#888888" strokeWidth={2.5} />} />
+                        <InlineStatRow label="Total Days"  value={stats.totalDays.toString()}     teal={false} icon={<Calendar   size={16} color="#888888" strokeWidth={2.5} />} />
+                        <InlineStatRow label="Best Streak" value={`${stats.longestStreak} Days`}  teal={true}  icon={<Zap        size={16} color="#5dffdd" strokeWidth={2.5} />} />
+                        <InlineStatRow label="Squad Rank"  value={`#${stats.rank}`}               teal={false} icon={<Award      size={16} color="#888888" strokeWidth={2.5} />} />
                     </div>
 
                     {/* ── Footer URL ── */}
@@ -191,7 +191,7 @@ export function PerformanceReport({ stats }: { stats: ReportStats }) {
 }
 
 // Inline-styled stat row so html2canvas captures it reliably (no CSS variables)
-function InlineStatRow({ label, value, teal }: { label: string; value: string; teal: boolean }) {
+function InlineStatRow({ label, value, teal, icon }: { label: string; value: string; teal: boolean; icon: ReactNode }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -200,10 +200,8 @@ function InlineStatRow({ label, value, teal }: { label: string; value: string; t
                     alignItems: 'center', justifyContent: 'center', border: '1px solid',
                     background: teal ? 'rgba(93,255,221,0.15)' : 'rgba(255,255,255,0.05)',
                     borderColor: teal ? 'rgba(93,255,221,0.3)' : 'rgba(255,255,255,0.1)',
-                    color: teal ? '#5dffdd' : '#888',
-                    fontSize: '12px', fontWeight: 700,
                 }}>
-                    {label.charAt(0)}
+                    {icon}
                 </div>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     {label}

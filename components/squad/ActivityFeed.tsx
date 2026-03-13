@@ -42,7 +42,20 @@ export function ActivityFeed() {
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(sub) }
+    // Fallback: when the current user checks in, refetch immediately so their
+    // entry appears even if Supabase Realtime isn't delivering the event.
+    // The DB trigger creates the activity record synchronously, so a small
+    // delay is enough for it to be readable.
+    const handleCheckinSuccess = () => {
+      fetchActivities()
+      setTimeout(fetchActivities, 1500)
+    }
+    window.addEventListener('checkin-success', handleCheckinSuccess)
+
+    return () => {
+      supabase.removeChannel(sub)
+      window.removeEventListener('checkin-success', handleCheckinSuccess)
+    }
   }, [])
 
   const fetchActivities = async () => {
