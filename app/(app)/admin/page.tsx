@@ -29,6 +29,10 @@ export default function AdminPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [sendingReport, setSendingReport] = useState(false)
   const [reportMsg, setReportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  // Default the date picker to today in PST (en-CA gives YYYY-MM-DD format)
+  const [reportDate, setReportDate] = useState(
+    () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" })
+  )
 
   useEffect(() => {
     if (!isLoading) {
@@ -139,7 +143,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin-notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "full-report" }),
+        body: JSON.stringify({ type: "full-report", asOfDate: reportDate }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -183,8 +187,20 @@ export default function AdminPage() {
       <Card>
         <h2 className="text-lg font-bold text-white mb-1">Stats Report</h2>
         <p className="text-xs text-brand-gray/60 mb-4">
-          Send a full squad report to your admin email — all members, check-in counts, completion rates, and streaks from Day 1.
+          Send a full squad report to your admin email — all members, check-in counts, completion rates, and streaks.
         </p>
+        <div className="space-y-1 mb-4">
+          <label className="text-xs text-brand-gray uppercase tracking-widest">Report Date</label>
+          <Input
+            type="date"
+            value={reportDate}
+            onChange={(e) => { setReportDate(e.target.value); setReportMsg(null) }}
+            max={new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" })}
+          />
+          <p className="text-[10px] text-brand-gray/40 px-0.5">
+            Pick any past day to see how the squad looked on that date.
+          </p>
+        </div>
         {reportMsg && (
           <p className={`text-xs mb-3 px-1 ${reportMsg.type === "ok" ? "text-brand-teal" : "text-red-400"}`}>
             {reportMsg.text}
@@ -195,7 +211,7 @@ export default function AdminPage() {
           variant="secondary"
           disabled={sendingReport}
         >
-          {sendingReport ? "Sending…" : "📊 Send Full Stats Report"}
+          {sendingReport ? "Sending…" : "📊 Send Stats Report"}
         </Button>
       </Card>
 

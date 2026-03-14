@@ -116,6 +116,8 @@ export async function POST(request: Request) {
     if (type === 'full-report') {
       const supabase  = createSupabaseServiceClient()
       const today     = getTodayPST()
+      // asOfDate lets the admin pull a report for any past day; defaults to today
+      const asOfDate  = (body as any).asOfDate ?? today
 
       // Fetch everything in parallel
       const [{ data: profiles }, { data: allCheckins }, { data: settings }] = await Promise.all([
@@ -130,15 +132,16 @@ export async function POST(request: Request) {
       const startDate    = settingsMap['start_date']    ?? DEFAULT_START_DATE
       const durationDays = parseInt(settingsMap['duration_days'] ?? String(DEFAULT_DURATION_DAYS))
 
-      // How many days of the challenge have elapsed (capped at duration)
+      // How many days of the challenge had elapsed by asOfDate (capped at duration)
       const msPerDay    = 1000 * 60 * 60 * 24
       const startMs     = new Date(`${startDate}T00:00:00-08:00`).getTime()
-      const todayMs     = new Date(`${today}T00:00:00-08:00`).getTime()
-      const daysElapsed = Math.max(1, Math.min(Math.floor((todayMs - startMs) / msPerDay) + 1, durationDays))
+      const asOfMs      = new Date(`${asOfDate}T00:00:00-08:00`).getTime()
+      const daysElapsed = Math.max(1, Math.min(Math.floor((asOfMs - startMs) / msPerDay) + 1, durationDays))
 
-      // Group all check-in dates by user (sorted newest-first for streak calc)
+      // Group check-in dates by user — only those on or before asOfDate
       const checkinsByUser: Record<string, string[]> = {}
       for (const c of (allCheckins ?? [])) {
+        if (c.date > asOfDate) continue
         if (!checkinsByUser[c.user_id]) checkinsByUser[c.user_id] = []
         checkinsByUser[c.user_id].push(c.date)
       }
@@ -152,9 +155,11 @@ export async function POST(request: Request) {
         const dates        = checkinsByUser[u.id] ?? []
         const totalCheckins = dates.length
 
-        // Current streak: count consecutive days ending today (or yesterday)
+        // Streak: consecutive days ending on asOfDate.
+        // If the user hasn't checked in on asOfDate yet (day not over),
+        // start counting from yesterday so an active streak isn't zeroed out.
         let streak   = 0
-        let expected = today
+        let expected = dates.includes(asOfDate) ? asOfDate : offsetDate(asOfDate, -1)
         for (const d of dates) {
           if (d === expected) {
             streak++
@@ -175,15 +180,16 @@ export async function POST(request: Request) {
       // Sort leaderboard by total check-ins desc
       userStats.sort((a, b) => b.totalCheckins - a.totalCheckins)
 
-      // Top-level stats
-      const totalMembers        = userStats.length
-      const membersWithPhone    = userStats.filter(u => u.phone).length
-      const todayCheckins       = (allCheckins ?? []).filter((c: any) => c.date === today).length
-      const totalCheckinsAllTime = (allCheckins ?? []).length
-      const overallPct          = Math.round((totalCheckinsAllTime / Math.max(1, totalMembers * daysElapsed)) * 100)
-      const avgStreak           = totalMembers > 0
+      // Top-level stats (all scoped to asOfDate)
+      const totalMembers         = userStats.length
+      const membersWithPhone     = userStats.filter(u => u.phone).length
+      const asOfDateCheckins     = (allCheckins ?? []).filter((c: any) => c.date === asOfDate).length
+      const totalCheckinsAllTime = (allCheckins ?? []).filter((c: any) => c.date <= asOfDate).length
+      const overallPct           = Math.round((totalCheckinsAllTime / Math.max(1, totalMembers * daysElapsed)) * 100)
+      const avgStreak            = totalMembers > 0
         ? Math.round(userStats.reduce((s, u) => s + u.streak, 0) / totalMembers)
         : 0
+      const isHistorical = asOfDate !== today
 
       // Build the member rows table
       const memberRows = userStats.map((u, i) => `
@@ -199,10 +205,10 @@ export async function POST(request: Request) {
       `).join('')
 
       await sendAdminEmail({
-        subject: `📊 Full Squad Report — Day ${daysElapsed} of ${durationDays} (${overallPct}% overall)`,
+        subject: `📊 Squad Report — ${isHistorical ? asOfDate : `Day ${daysElapsed}`} of ${durationDays} (${overallPct}% overall)`,
         html: emailWrap(`
           ${emailH2('Squad Stats Report')}
-          ${emailMeta(`Generated ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST · Day ${daysElapsed} of ${durationDays}`)}
+          ${emailMeta(`${isHistorical ? `As of ${asOfDate}` : `Generated ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST`} · Day ${daysElapsed} of ${durationDays}`)}
 
           <!-- Overview cards -->
           <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
@@ -213,8 +219,8 @@ export async function POST(request: Request) {
               </td>
               <td style="width:8px;"></td>
               <td style="padding:12px;background:#161b22;border-radius:8px;text-align:center;width:25%;">
-                <div style="color:#5dffdd;font-size:24px;font-weight:700;">${todayCheckins}</div>
-                <div style="color:#6e7681;font-size:11px;margin-top:2px;">Today</div>
+                <div style="color:#5dffdd;font-size:24px;font-weight:700;">${asOfDateCheckins}</div>
+                <div style="color:#6e7681;font-size:11px;margin-top:2px;">${isHistorical ? asOfDate : 'Today'}</div>
               </td>
               <td style="width:8px;"></td>
               <td style="padding:12px;background:#161b22;border-radius:8px;text-align:center;width:25%;">
