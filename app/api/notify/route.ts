@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { sendPushNotification } from '@/lib/notifications'
-import { sendSMS }              from '@/lib/sms'
-import { getTodayPST }          from '@/lib/challenge'
+import { getTodayPST } from '@/lib/challenge'
 
 // Streak values that trigger a milestone notification
 const STREAK_MILESTONES = [7, 14, 21, 30, 50, 100]
@@ -125,7 +124,6 @@ export async function POST(request: Request) {
 
     // ── Social pulse (squad group achievement) ─────────────────────────────────
     // Called after each check-in. Notifies unchecked-in users at 50% and 80%.
-    // SMS is sent at the 50% milestone only (most motivating threshold).
     if (type === 'social-pulse') {
       const [{ count: totalUsers }, { count: checkedInCount }] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
@@ -142,81 +140,58 @@ export async function POST(request: Request) {
       }
 
       const [{ data: allProfiles }, { data: checkinsToday }] = await Promise.all([
-        supabase.from('profiles').select('id, phone, notification_settings'),
+        supabase.from('profiles').select('id, notification_settings'),
         supabase.from('checkins').select('user_id').eq('date', today),
       ])
 
       const checkedInIds = new Set((checkinsToday ?? []).map((c: any) => c.user_id))
 
-      // Users who have not checked in yet
-      const targets = (allProfiles ?? []).filter((u: any) => !checkedInIds.has(u.id))
+      // Target users who have not checked in yet and have social notifications on
+      const targets = (allProfiles ?? []).filter((u: any) =>
+        !checkedInIds.has(u.id) &&
+        u.notification_settings?.push_token &&
+        u.notification_settings?.social !== false
+      )
 
+      // Send individually to enforce the per-user daily cap
       await Promise.all(
         targets.map(async (u: any) => {
-          // ── Push notification ──
-          if (
-            u.notification_settings?.push_token &&
-            u.notification_settings?.social !== false
-          ) {
-            const canSend = await canSendToUser(supabase, u.id, today)
-            if (canSend) {
-              await sendPushNotification({
-                userIds: [u.notification_settings.push_token],
-                title: 'Squad Pulse ⚡',
-                message: `${percentage}% of your squad already planked today. Do not be the outlier.`,
-              })
-            }
-          }
-
-          // ── SMS (50% threshold only — one nudge per milestone) ──
-          if (u.phone && percentage === 50) {
-            await sendSMS({
-              to: u.phone,
-              message: `💪 Half your squad already planked today! Don't fall behind — 2 minutes is all it takes.`,
-            })
-          }
+          const canSend = await canSendToUser(supabase, u.id, today)
+          if (!canSend) return
+          await sendPushNotification({
+            userIds: [u.notification_settings.push_token],
+            title: 'Squad Pulse ⚡',
+            message: `${percentage}% of your squad already planked today. Do not be the outlier.`,
+          })
         })
       )
     }
 
     // ── Daily reminder ─────────────────────────────────────────────────────────
     // Called by a scheduled cron job in the evening for users who have not yet checked in.
-    // Sends both a push notification (if token exists) and an SMS (if phone exists).
     if (type === 'daily-reminder') {
       const [{ data: allProfiles }, { data: checkinsToday }] = await Promise.all([
-        supabase.from('profiles').select('id, phone, notification_settings'),
+        supabase.from('profiles').select('id, notification_settings'),
         supabase.from('checkins').select('user_id').eq('date', today),
       ])
 
       const checkedInIds = new Set((checkinsToday ?? []).map((c: any) => c.user_id))
 
-      // Users who have not checked in today
-      const targets = (allProfiles ?? []).filter((u: any) => !checkedInIds.has(u.id))
+      const targets = (allProfiles ?? []).filter((u: any) =>
+        !checkedInIds.has(u.id) &&
+        u.notification_settings?.push_token &&
+        u.notification_settings?.reminders !== false
+      )
 
       await Promise.all(
         targets.map(async (u: any) => {
-          // ── Push notification ──
-          if (
-            u.notification_settings?.push_token &&
-            u.notification_settings?.reminders !== false
-          ) {
-            const canSend = await canSendToUser(supabase, u.id, today)
-            if (canSend) {
-              await sendPushNotification({
-                userIds: [u.notification_settings.push_token],
-                title: 'Status Check 👊',
-                message: 'The day is ending. Protect your streak.',
-              })
-            }
-          }
-
-          // ── SMS reminder ──
-          if (u.phone) {
-            await sendSMS({
-              to: u.phone,
-              message: `⏰ Reminder: you haven't logged your plank yet today. 2 minutes — that's all it takes. Keep your streak alive.`,
-            })
-          }
+          const canSend = await canSendToUser(supabase, u.id, today)
+          if (!canSend) return
+          await sendPushNotification({
+            userIds: [u.notification_settings.push_token],
+            title: 'Status Check 👊',
+            message: 'The day is ending. Protect your streak.',
+          })
         })
       )
     }
