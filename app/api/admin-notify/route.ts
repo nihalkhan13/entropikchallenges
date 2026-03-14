@@ -116,3 +116,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
+
+/**
+ * GET handler — called automatically by Vercel Cron every day at 7 pm PST.
+ * Vercel sends a GET request (not POST), so we forward it as a daily-summary.
+ */
+export async function GET(request: Request) {
+  // Verify the request is from Vercel Cron (optional but recommended)
+  const authHeader = request.headers.get('authorization')
+  if (
+    process.env.CRON_SECRET &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Re-use the POST handler with a daily-summary body
+  const syntheticRequest = new Request(request.url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'authorization': authHeader ?? '' },
+    body: JSON.stringify({ type: 'daily-summary' }),
+  })
+  return POST(syntheticRequest)
+}
