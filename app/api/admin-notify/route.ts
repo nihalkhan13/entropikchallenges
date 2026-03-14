@@ -256,9 +256,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: 'Unknown notification type' }, { status: 400 })
-  } catch (err) {
+  } catch (err: any) {
     console.error('admin-notify error:', err)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: err?.message ?? 'Internal Server Error' }, { status: 500 })
   }
 }
 

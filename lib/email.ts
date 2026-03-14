@@ -28,11 +28,15 @@ export async function sendAdminEmail({
   }
 
   try {
-    await getResend().emails.send({ from: fromEmail, to: adminEmail, subject, html })
+    const { error } = await getResend().emails.send({ from: fromEmail, to: adminEmail, subject, html })
+    if (error) {
+      console.error('sendAdminEmail Resend error:', error)
+      throw new Error((error as any).message ?? JSON.stringify(error))
+    }
     return true
   } catch (err) {
     console.error('sendAdminEmail error:', err)
-    return false
+    throw err   // re-throw so API routes can surface the message
   }
 }
 
