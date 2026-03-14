@@ -6,6 +6,10 @@ import { useAuth } from "@/context/AuthContext"
 import { Loader2, LogOut, Shield, RefreshCw, UserPen } from "lucide-react"
 import Link from "next/link"
 import { DisplayNameModal } from "@/components/profile/DisplayNameModal"
+import { PhoneModal }       from "@/components/profile/PhoneModal"
+
+// ── LOCAL DEV ONLY: must match the flag in AuthContext.tsx ──
+const DEV_BYPASS = false
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, profile, isLoading, signOut, refreshProfile } = useAuth()
@@ -14,12 +18,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [editNameOpen, setEditNameOpen] = useState(false)
   // Onboarding: checked against localStorage so no DB migration is required
   const [showOnboarding, setShowOnboarding] = useState(false)
+  // Phone-number prompt: shown once after onboarding (or on first load for existing users)
+  const [showPhoneModal, setShowPhoneModal] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   // If profile doesn't load within 12s, show a retry prompt
   const [profileStalled, setProfileStalled] = useState(false)
 
   // Redirect to login only if auth is resolved AND there's no session
   useEffect(() => {
+    if (DEV_BYPASS) return
     if (!isLoading && !session) {
       router.replace("/login")
     }
@@ -46,14 +53,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Check if the user has completed onboarding (stored in localStorage)
+  // Decide which onboarding step to show (name → phone).
+  // Step 1 — name: if the user hasn't confirmed their display name yet.
+  // Step 2 — phone: if the user is onboarded but hasn't been asked for their
+  //   phone number yet and hasn't already saved one.
   useEffect(() => {
     if (!profile || !session?.user?.id) return
+    // Dev bypass: skip all onboarding prompts during local development
+    if (DEV_BYPASS) {
+      try { localStorage.setItem(`entropik_onboarded_${session.user.id}`, "1") } catch { /* ignore */ }
+      setShowOnboarding(false)
+      return
+    }
     try {
-      const key = `entropik_onboarded_${session.user.id}`
-      setShowOnboarding(!localStorage.getItem(key))
+      const uid        = session.user.id
+      const onboarded  = !!localStorage.getItem(`entropik_onboarded_${uid}`)
+      const phoneAsked = !!localStorage.getItem(`entropik_phone_asked_${uid}`)
+      if (!onboarded) {
+        // First-ever login: collect display name first
+        setShowOnboarding(true)
+      } else if (!phoneAsked && !profile.phone) {
+        // Already has a name, but hasn't seen the phone prompt yet
+        setShowPhoneModal(true)
+      }
     } catch {
-      // localStorage blocked — skip onboarding
       setShowOnboarding(false)
     }
   }, [profile?.id, session?.user?.id])
@@ -110,14 +133,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/5 rounded-full blur-[120px]" />
       </div>
 
-      {/* First-login onboarding: ask user to confirm/set their display name */}
-      {showOnboarding && (
+      {/* Step 1 — first-login: confirm/set display name */}
+      {!DEV_BYPASS && showOnboarding && (
         <DisplayNameModal
           currentName={profile.display_name}
           isOnboarding
           onSave={() => {
             setShowOnboarding(false)
             refreshProfile()
+            // Move straight to the phone prompt (step 2) unless already asked
+            try {
+              const uid = session!.user.id
+              if (!localStorage.getItem(`entropik_phone_asked_${uid}`)) {
+                setShowPhoneModal(true)
+              }
+            } catch { /* ignore */ }
+          }}
+        />
+      )}
+
+      {/* Step 2 — phone number opt-in (new users: right after name; existing users: once on first load) */}
+      {!DEV_BYPASS && showPhoneModal && (
+        <PhoneModal
+          onDone={() => {
+            setShowPhoneModal(false)
+            refreshProfile()
+            try {
+              localStorage.setItem(`entropik_phone_asked_${session!.user.id}`, "1")
+            } catch { /* ignore */ }
           }}
         />
       )}

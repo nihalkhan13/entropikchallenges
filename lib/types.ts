@@ -11,6 +11,7 @@ export type Profile = {
   display_name: string
   is_admin: boolean
   has_onboarded?: boolean   // tracked via localStorage, not required in DB
+  phone?: string | null     // E.164 phone number for SMS opt-in; null = not opted in
   notification_settings?: {
     reminders: boolean
     social: boolean
