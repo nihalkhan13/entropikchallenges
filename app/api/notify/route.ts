@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { sendPushNotification } from '@/lib/notifications'
+import { sendAdminEmail, emailWrap, emailH2, emailMeta } from '@/lib/email'
 import { getTodayPST } from '@/lib/challenge'
 
 // Streak values that trigger a milestone notification
@@ -165,6 +166,21 @@ export async function POST(request: Request) {
           })
         })
       )
+
+      // Notify admin at 50% milestone only
+      if (percentage === 50) {
+        sendAdminEmail({
+          subject: `⚡ Squad Milestone: 50% completed today (${today})`,
+          html: emailWrap(`
+            ${emailH2('Squad Milestone: 50% ⚡')}
+            ${emailMeta(today)}
+            <p style="color:#e6edf3;">
+              Half the squad has checked in today.
+              <strong style="color:#5dffdd;">${checkedInCount} / ${totalUsers}</strong> members done.
+            </p>
+          `),
+        }).catch(() => {/* non-critical */})
+      }
     }
 
     // ── Daily reminder ─────────────────────────────────────────────────────────

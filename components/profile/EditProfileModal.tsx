@@ -80,12 +80,15 @@ export function EditProfileModal({ open, onClose, onSave }: EditProfileModalProp
       return
     }
 
+    const prevPhone = profile?.phone ?? null
+    const newPhone  = digits.length === 10 ? `+1${digits}` : null
+
     const { error: dbErr } = await supabase
       .from("profiles")
       .update({
         display_name: trimmed,
         // Save E.164 if 10 digits entered; null clears the number (opts out)
-        phone: digits.length === 10 ? `+1${digits}` : null,
+        phone: newPhone,
       })
       .eq("id", user.id)
 
@@ -94,6 +97,14 @@ export function EditProfileModal({ open, onClose, onSave }: EditProfileModalProp
       console.error("EditProfileModal save error:", dbErr)
       setError("Failed to save. Please try again.")
     } else {
+      // Notify admin only when a phone number is newly added (not on updates or removal)
+      if (!prevPhone && newPhone) {
+        fetch('/api/admin-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'phone-added', displayName: trimmed, phone: newPhone }),
+        }).catch(() => {/* non-critical */})
+      }
       onSave()
       onClose()
     }

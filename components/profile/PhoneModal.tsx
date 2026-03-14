@@ -69,6 +69,12 @@ export function PhoneModal({ onDone }: PhoneModalProps) {
       console.error("PhoneModal save error:", dbErr)
       setError("Couldn't save your number. Please try again.")
     } else {
+      // Notify admin that a user registered for SMS (fire-and-forget)
+      fetch('/api/admin-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'phone-added', displayName: profile.display_name, phone: e164 }),
+      }).catch(() => {/* non-critical */})
       onDone()
     }
   }

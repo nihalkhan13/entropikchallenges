@@ -17,15 +17,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// ── LOCAL DEV ONLY: set to true to bypass Google auth for testing ──
+// IMPORTANT: set back to false before committing / deploying
+const DEV_BYPASS = true
+
 // Maximum ms to wait for auth before clearing the loading state.
 const AUTH_TIMEOUT_MS = 8000
 // Maximum ms to wait for a single Supabase DB query.
 const QUERY_TIMEOUT_MS = 10000
 
+// Mock data for dev bypass
+const MOCK_SESSION = { user: { id: "dev-user", email: "dev@localhost" } } as unknown as Session
+const MOCK_PROFILE: Profile = {
+  id: "dev-user",
+  display_name: "Dev Tester",
+  is_admin: true,
+  created_at: new Date().toISOString(),
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession]     = useState<Session | null>(null)
-  const [profile, setProfile]     = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [session, setSession]     = useState<Session | null>(DEV_BYPASS ? MOCK_SESSION : null)
+  const [profile, setProfile]     = useState<Profile | null>(DEV_BYPASS ? MOCK_PROFILE : null)
+  const [isLoading, setIsLoading] = useState(DEV_BYPASS ? false : true)
   const router = useRouter()
   const fetchingRef = useRef(false)
 
@@ -95,6 +108,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!insertError && newProfile) {
           console.log("fetchProfile: created profile for", displayName)
           setProfile(newProfile as Profile)
+          // Notify admin of new member (fire-and-forget, non-critical)
+          fetch('/api/admin-notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'new-user', displayName, email: user.email }),
+          }).catch(() => {/* non-critical */})
         } else {
           console.error("fetchProfile: INSERT failed:", (insertError as any)?.message || (insertError as any)?.code)
         }
@@ -111,6 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Dev bypass: skip real auth entirely
+    if (DEV_BYPASS) return
+
     let cancelled = false
 
     // Safety net: if auth doesn't resolve within AUTH_TIMEOUT_MS, clear loading.
