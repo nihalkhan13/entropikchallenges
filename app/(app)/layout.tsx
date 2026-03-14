@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { Loader2, LogOut, Shield, RefreshCw, UserPen } from "lucide-react"
 import Link from "next/link"
-import { DisplayNameModal } from "@/components/profile/DisplayNameModal"
-import { PhoneModal }       from "@/components/profile/PhoneModal"
+import { DisplayNameModal }  from "@/components/profile/DisplayNameModal"
+import { PhoneModal }        from "@/components/profile/PhoneModal"
+import { EditProfileModal }  from "@/components/profile/EditProfileModal"
 
 // ── LOCAL DEV ONLY: must match the flag in AuthContext.tsx ──
 const DEV_BYPASS = false
@@ -15,7 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, profile, isLoading, signOut, refreshProfile } = useAuth()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [editNameOpen, setEditNameOpen] = useState(false)
+  const [editProfileOpen, setEditProfileOpen] = useState(false)
   // Onboarding: checked against localStorage so no DB migration is required
   const [showOnboarding, setShowOnboarding] = useState(false)
   // Phone-number prompt: shown once after onboarding (or on first load for existing users)
@@ -54,9 +55,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Decide which onboarding step to show (name → phone).
-  // Step 1 — name: if the user hasn't confirmed their display name yet.
-  // Step 2 — phone: if the user is onboarded but hasn't been asked for their
-  //   phone number yet and hasn't already saved one.
+  // Step 1 — name: first-ever login, collect display name.
+  // Step 2 — phone: shown on EVERY login until the user saves a number.
+  //   Skipping the popup does not suppress it — only saving a number does.
   useEffect(() => {
     if (!profile || !session?.user?.id) return
     // Dev bypass: skip all onboarding prompts during local development
@@ -66,14 +67,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return
     }
     try {
-      const uid        = session.user.id
-      const onboarded  = !!localStorage.getItem(`entropik_onboarded_${uid}`)
-      const phoneAsked = !!localStorage.getItem(`entropik_phone_asked_${uid}`)
+      const uid       = session.user.id
+      const onboarded = !!localStorage.getItem(`entropik_onboarded_${uid}`)
       if (!onboarded) {
         // First-ever login: collect display name first
         setShowOnboarding(true)
-      } else if (!phoneAsked && !profile.phone) {
-        // Already has a name, but hasn't seen the phone prompt yet
+      } else if (!profile.phone) {
+        // Show phone prompt every login until a number is saved
         setShowPhoneModal(true)
       }
     } catch {
@@ -141,36 +141,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onSave={() => {
             setShowOnboarding(false)
             refreshProfile()
-            // Move straight to the phone prompt (step 2) unless already asked
-            try {
-              const uid = session!.user.id
-              if (!localStorage.getItem(`entropik_phone_asked_${uid}`)) {
-                setShowPhoneModal(true)
-              }
-            } catch { /* ignore */ }
+            // Always move to phone prompt after name — suppressed only once a number is saved
+            setShowPhoneModal(true)
           }}
         />
       )}
 
-      {/* Step 2 — phone number opt-in (new users: right after name; existing users: once on first load) */}
+      {/* Step 2 — phone number opt-in: shown every login until a number is saved */}
       {!DEV_BYPASS && showPhoneModal && (
         <PhoneModal
           onDone={() => {
             setShowPhoneModal(false)
             refreshProfile()
-            try {
-              localStorage.setItem(`entropik_phone_asked_${session!.user.id}`, "1")
-            } catch { /* ignore */ }
           }}
         />
       )}
 
-      {/* Edit name modal (opened from dropdown) */}
-      <DisplayNameModal
-        currentName={profile.display_name}
-        open={editNameOpen}
-        onClose={() => setEditNameOpen(false)}
-        onSave={() => { refreshProfile(); setEditNameOpen(false) }}
+      {/* Edit Profile modal (opened from dropdown) — name + phone in one form */}
+      <EditProfileModal
+        open={editProfileOpen}
+        onClose={() => setEditProfileOpen(false)}
+        onSave={() => { refreshProfile(); setEditProfileOpen(false) }}
       />
 
       <main className="max-w-md mx-auto min-h-screen flex flex-col p-4 pb-20">
@@ -200,7 +191,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="absolute right-0 top-full mt-2 w-44 bg-[#1a1f26] border border-brand-glass-border rounded-xl shadow-xl overflow-hidden z-50">
                 {/* Edit Profile */}
                 <button
-                  onClick={() => { setMenuOpen(false); setEditNameOpen(true) }}
+                  onClick={() => { setMenuOpen(false); setEditProfileOpen(true) }}
                   className="flex items-center gap-2.5 px-4 py-3 text-xs text-brand-gray hover:bg-white/5 hover:text-brand-teal transition-colors w-full text-left"
                 >
                   <UserPen className="w-3.5 h-3.5 shrink-0" />
