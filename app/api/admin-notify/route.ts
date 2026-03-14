@@ -147,7 +147,8 @@ export async function POST(request: Request) {
       }
 
       // Per-user stats
-      const userStats = (profiles ?? []).map((u: any) => {
+      type UserStat = { name: string; phone: string | null; joined: string; totalCheckins: number; streak: number; completionPct: number }
+      const userStats: UserStat[] = (profiles ?? []).map((u: any) => {
         const dates        = checkinsByUser[u.id] ?? []
         const totalCheckins = dates.length
 
@@ -172,7 +173,7 @@ export async function POST(request: Request) {
       })
 
       // Sort leaderboard by total check-ins desc
-      userStats.sort((a: { totalCheckins: number }, b: { totalCheckins: number }) => b.totalCheckins - a.totalCheckins)
+      userStats.sort((a, b) => b.totalCheckins - a.totalCheckins)
 
       // Top-level stats
       const totalMembers        = userStats.length
