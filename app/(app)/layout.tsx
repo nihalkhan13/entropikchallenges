@@ -143,9 +143,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onSave={() => {
             setShowOnboarding(false)
             refreshProfile()
-            // Move to phone prompt only if not already seen
+            // Stamp as completed so it never shows again
             try {
               const uid = session!.user.id
+              localStorage.setItem(`entropik_onboarded_${uid}`, "1")
+              // Move to phone prompt only if not already seen
               if (!localStorage.getItem(`entropik_phone_asked_${uid}`)) {
                 setShowPhoneModal(true)
               }

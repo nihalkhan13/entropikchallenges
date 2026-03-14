@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // ── LOCAL DEV ONLY: set to true to bypass Google auth for testing ──
 // IMPORTANT: set back to false before committing / deploying
-const DEV_BYPASS = true
+const DEV_BYPASS = false
 
 // Maximum ms to wait for auth before clearing the loading state.
 const AUTH_TIMEOUT_MS = 8000
