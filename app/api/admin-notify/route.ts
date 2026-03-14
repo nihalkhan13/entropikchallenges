@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { sendAdminEmail, emailWrap, emailH2, emailMeta, emailRow } from '@/lib/email'
-import { getTodayPST } from '@/lib/challenge'
+import { getTodayPST, offsetDate } from '@/lib/challenge'
+import { DEFAULT_START_DATE, DEFAULT_DURATION_DAYS } from '@/lib/constants'
 
 export async function POST(request: Request) {
   try {
@@ -104,6 +105,149 @@ export async function POST(request: Request) {
               </table>
             `
           }
+        `),
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    // ── Full stats report (triggered from admin panel) ────────────────────────
+    // No CRON_SECRET required — admin panel is already auth-gated.
+    if (type === 'full-report') {
+      const supabase  = createSupabaseServiceClient()
+      const today     = getTodayPST()
+
+      // Fetch everything in parallel
+      const [{ data: profiles }, { data: allCheckins }, { data: settings }] = await Promise.all([
+        supabase.from('profiles').select('id, display_name, phone, created_at').order('created_at'),
+        supabase.from('checkins').select('user_id, date'),
+        supabase.from('challenge_settings').select('key, value'),
+      ])
+
+      // Parse challenge settings (fall back to constants if not configured)
+      const settingsMap: Record<string, string> = {}
+      for (const s of (settings ?? [])) settingsMap[s.key] = s.value
+      const startDate    = settingsMap['start_date']    ?? DEFAULT_START_DATE
+      const durationDays = parseInt(settingsMap['duration_days'] ?? String(DEFAULT_DURATION_DAYS))
+
+      // How many days of the challenge have elapsed (capped at duration)
+      const msPerDay    = 1000 * 60 * 60 * 24
+      const startMs     = new Date(`${startDate}T00:00:00-08:00`).getTime()
+      const todayMs     = new Date(`${today}T00:00:00-08:00`).getTime()
+      const daysElapsed = Math.max(1, Math.min(Math.floor((todayMs - startMs) / msPerDay) + 1, durationDays))
+
+      // Group all check-in dates by user (sorted newest-first for streak calc)
+      const checkinsByUser: Record<string, string[]> = {}
+      for (const c of (allCheckins ?? [])) {
+        if (!checkinsByUser[c.user_id]) checkinsByUser[c.user_id] = []
+        checkinsByUser[c.user_id].push(c.date)
+      }
+      for (const uid in checkinsByUser) {
+        checkinsByUser[uid].sort().reverse()
+      }
+
+      // Per-user stats
+      const userStats = (profiles ?? []).map((u: any) => {
+        const dates        = checkinsByUser[u.id] ?? []
+        const totalCheckins = dates.length
+
+        // Current streak: count consecutive days ending today (or yesterday)
+        let streak   = 0
+        let expected = today
+        for (const d of dates) {
+          if (d === expected) {
+            streak++
+            expected = offsetDate(expected, -1)
+          } else if (d < expected) {
+            break
+          }
+        }
+
+        const completionPct = Math.round((totalCheckins / daysElapsed) * 100)
+        const joined = new Date(u.created_at).toLocaleDateString('en-US', {
+          timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric',
+        })
+
+        return { name: u.display_name, phone: u.phone ?? null, joined, totalCheckins, streak, completionPct }
+      })
+
+      // Sort leaderboard by total check-ins desc
+      userStats.sort((a, b) => b.totalCheckins - a.totalCheckins)
+
+      // Top-level stats
+      const totalMembers        = userStats.length
+      const membersWithPhone    = userStats.filter(u => u.phone).length
+      const todayCheckins       = (allCheckins ?? []).filter((c: any) => c.date === today).length
+      const totalCheckinsAllTime = (allCheckins ?? []).length
+      const overallPct          = Math.round((totalCheckinsAllTime / Math.max(1, totalMembers * daysElapsed)) * 100)
+      const avgStreak           = totalMembers > 0
+        ? Math.round(userStats.reduce((s, u) => s + u.streak, 0) / totalMembers)
+        : 0
+
+      // Build the member rows table
+      const memberRows = userStats.map((u, i) => `
+        <tr>
+          <td style="padding:7px 12px;border-bottom:1px solid #21262d;color:#6e7681;font-size:12px;">${i + 1}</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #21262d;color:#e6edf3;">${u.name}</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #21262d;color:${u.phone ? '#5dffdd' : '#6e7681'};">${u.phone ?? '—'}</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #21262d;color:#e6edf3;text-align:center;">${u.totalCheckins} <span style="color:#6e7681;font-size:11px;">/ ${daysElapsed}</span></td>
+          <td style="padding:7px 12px;border-bottom:1px solid #21262d;color:${u.completionPct >= 80 ? '#5dffdd' : u.completionPct >= 50 ? '#e6edf3' : '#6e7681'};text-align:center;">${u.completionPct}%</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #21262d;color:${u.streak >= 7 ? '#5dffdd' : '#e6edf3'};text-align:center;">${u.streak}🔥</td>
+          <td style="padding:7px 12px;border-bottom:1px solid #21262d;color:#6e7681;font-size:11px;">${u.joined}</td>
+        </tr>
+      `).join('')
+
+      await sendAdminEmail({
+        subject: `📊 Full Squad Report — Day ${daysElapsed} of ${durationDays} (${overallPct}% overall)`,
+        html: emailWrap(`
+          ${emailH2('Squad Stats Report')}
+          ${emailMeta(`Generated ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST · Day ${daysElapsed} of ${durationDays}`)}
+
+          <!-- Overview cards -->
+          <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+            <tr>
+              <td style="padding:12px;background:#161b22;border-radius:8px;text-align:center;width:25%;">
+                <div style="color:#5dffdd;font-size:24px;font-weight:700;">${totalMembers}</div>
+                <div style="color:#6e7681;font-size:11px;margin-top:2px;">Members</div>
+              </td>
+              <td style="width:8px;"></td>
+              <td style="padding:12px;background:#161b22;border-radius:8px;text-align:center;width:25%;">
+                <div style="color:#5dffdd;font-size:24px;font-weight:700;">${todayCheckins}</div>
+                <div style="color:#6e7681;font-size:11px;margin-top:2px;">Today</div>
+              </td>
+              <td style="width:8px;"></td>
+              <td style="padding:12px;background:#161b22;border-radius:8px;text-align:center;width:25%;">
+                <div style="color:#5dffdd;font-size:24px;font-weight:700;">${overallPct}%</div>
+                <div style="color:#6e7681;font-size:11px;margin-top:2px;">Overall Rate</div>
+              </td>
+              <td style="width:8px;"></td>
+              <td style="padding:12px;background:#161b22;border-radius:8px;text-align:center;width:25%;">
+                <div style="color:#5dffdd;font-size:24px;font-weight:700;">${membersWithPhone}</div>
+                <div style="color:#6e7681;font-size:11px;margin-top:2px;">SMS Opted In</div>
+              </td>
+            </tr>
+          </table>
+
+          ${emailRow('Total check-ins all time', String(totalCheckinsAllTime))}
+          ${emailRow('Average current streak', `${avgStreak} days`)}
+          ${emailRow('Challenge progress', `Day ${daysElapsed} of ${durationDays}`)}
+
+          <!-- Member table -->
+          <h3 style="color:#e6edf3;margin:24px 0 8px;font-size:14px;">All Members (ranked by check-ins)</h3>
+          <table style="border-collapse:collapse;width:100%;background:#161b22;border-radius:8px;overflow:hidden;font-size:12px;">
+            <thead>
+              <tr style="background:#1c2128;">
+                <th style="padding:8px 12px;text-align:left;color:#5dffdd;">#</th>
+                <th style="padding:8px 12px;text-align:left;color:#5dffdd;">Name</th>
+                <th style="padding:8px 12px;text-align:left;color:#5dffdd;">Phone</th>
+                <th style="padding:8px 12px;text-align:center;color:#5dffdd;">Check-ins</th>
+                <th style="padding:8px 12px;text-align:center;color:#5dffdd;">Rate</th>
+                <th style="padding:8px 12px;text-align:center;color:#5dffdd;">Streak</th>
+                <th style="padding:8px 12px;text-align:left;color:#5dffdd;">Joined</th>
+              </tr>
+            </thead>
+            <tbody>${memberRows}</tbody>
+          </table>
         `),
       })
 

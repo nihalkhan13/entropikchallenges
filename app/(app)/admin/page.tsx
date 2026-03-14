@@ -27,6 +27,8 @@ export default function AdminPage() {
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsMsg, setSettingsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [sendingReport, setSendingReport] = useState(false)
+  const [reportMsg, setReportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
 
   useEffect(() => {
     if (!isLoading) {
@@ -129,6 +131,29 @@ export default function AdminPage() {
     }
   }
 
+  // ─── Send full stats report email ─────────────────────────────────────────
+  const handleSendReport = async () => {
+    setSendingReport(true)
+    setReportMsg(null)
+    try {
+      const res = await fetch("/api/admin-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "full-report" }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setReportMsg({ type: "err", text: json.error ?? "Failed to send report" })
+      } else {
+        setReportMsg({ type: "ok", text: "✓ Full stats report sent to your inbox!" })
+      }
+    } catch (e: any) {
+      setReportMsg({ type: "err", text: e.message ?? "Network error" })
+    } finally {
+      setSendingReport(false)
+    }
+  }
+
   // ─── Export CSV ───────────────────────────────────────────────────────────
   const exportCSV = async () => {
     const { data: checkins } = await supabase
@@ -153,6 +178,26 @@ export default function AdminPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold text-white">Admin Control</h1>
+
+      {/* ── Stats Report ── */}
+      <Card>
+        <h2 className="text-lg font-bold text-white mb-1">Stats Report</h2>
+        <p className="text-xs text-brand-gray/60 mb-4">
+          Send a full squad report to your admin email — all members, check-in counts, completion rates, and streaks from Day 1.
+        </p>
+        {reportMsg && (
+          <p className={`text-xs mb-3 px-1 ${reportMsg.type === "ok" ? "text-brand-teal" : "text-red-400"}`}>
+            {reportMsg.text}
+          </p>
+        )}
+        <Button
+          onClick={handleSendReport}
+          variant="secondary"
+          disabled={sendingReport}
+        >
+          {sendingReport ? "Sending…" : "📊 Send Full Stats Report"}
+        </Button>
+      </Card>
 
       {/* ── Challenge Settings ── */}
       <Card>
