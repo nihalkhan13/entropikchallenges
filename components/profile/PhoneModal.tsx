@@ -98,6 +98,9 @@ export function PhoneModal({ onDone }: PhoneModalProps) {
               Get a quick text when you haven't planked yet or when half your
               squad has already crushed it. No spam — just nudges.
             </p>
+            <p className="text-brand-gray/35 text-[10px] leading-relaxed max-w-[260px]">
+              You can always add your number later by tapping your name and selecting <span className="text-brand-gray/55">Edit Profile</span>.
+            </p>
           </div>
 
           {/* Input — fixed +1 prefix, digits only, auto-formatted */}

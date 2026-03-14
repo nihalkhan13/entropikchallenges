@@ -56,8 +56,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Decide which onboarding step to show (name → phone).
   // Step 1 — name: first-ever login, collect display name.
-  // Step 2 — phone: shown on EVERY login until the user saves a number.
-  //   Skipping the popup does not suppress it — only saving a number does.
+  // Step 2 — phone: shown exactly once, right after onboarding (or on first
+  //   post-deploy load for existing users). Stamped in localStorage regardless
+  //   of whether the user saves or skips — they can always add via Edit Profile.
   useEffect(() => {
     if (!profile || !session?.user?.id) return
     // Dev bypass: skip all onboarding prompts during local development
@@ -67,13 +68,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return
     }
     try {
-      const uid       = session.user.id
-      const onboarded = !!localStorage.getItem(`entropik_onboarded_${uid}`)
+      const uid        = session.user.id
+      const onboarded  = !!localStorage.getItem(`entropik_onboarded_${uid}`)
+      const phoneAsked = !!localStorage.getItem(`entropik_phone_asked_${uid}`)
       if (!onboarded) {
         // First-ever login: collect display name first
         setShowOnboarding(true)
-      } else if (!profile.phone) {
-        // Show phone prompt every login until a number is saved
+      } else if (!phoneAsked) {
+        // Show phone prompt exactly once (save or skip both mark it as seen)
         setShowPhoneModal(true)
       }
     } catch {
@@ -141,18 +143,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onSave={() => {
             setShowOnboarding(false)
             refreshProfile()
-            // Always move to phone prompt after name — suppressed only once a number is saved
-            setShowPhoneModal(true)
+            // Move to phone prompt only if not already seen
+            try {
+              const uid = session!.user.id
+              if (!localStorage.getItem(`entropik_phone_asked_${uid}`)) {
+                setShowPhoneModal(true)
+              }
+            } catch { /* ignore */ }
           }}
         />
       )}
 
-      {/* Step 2 — phone number opt-in: shown every login until a number is saved */}
+      {/* Step 2 — phone number opt-in: shown exactly once (save or skip both mark it done) */}
       {!DEV_BYPASS && showPhoneModal && (
         <PhoneModal
           onDone={() => {
             setShowPhoneModal(false)
             refreshProfile()
+            // Stamp as seen regardless of whether user saved or skipped
+            try {
+              localStorage.setItem(`entropik_phone_asked_${session!.user.id}`, "1")
+            } catch { /* ignore */ }
           }}
         />
       )}
