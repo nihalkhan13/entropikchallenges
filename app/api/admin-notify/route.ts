@@ -172,7 +172,7 @@ export async function POST(request: Request) {
       })
 
       // Sort leaderboard by total check-ins desc
-      userStats.sort((a, b) => b.totalCheckins - a.totalCheckins)
+      userStats.sort((a: { totalCheckins: number }, b: { totalCheckins: number }) => b.totalCheckins - a.totalCheckins)
 
       // Top-level stats
       const totalMembers        = userStats.length
