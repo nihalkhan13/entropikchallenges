@@ -48,8 +48,8 @@ export default function PrivacyPolicyPage() {
         <p style={{ color: "#8b949e", lineHeight: 1.7 }}>
           To opt out of SMS messages at any time, reply <strong style={{ color: "#e6edf3" }}>STOP</strong> to
           any message. To get help, reply <strong style={{ color: "#e6edf3" }}>HELP</strong>.
-          Message and data rates may apply. Consent to receive SMS messages is never a
-          condition of participation in the challenge.
+          Messaging frequency may vary. Message and data rates may apply.
+          Consent to receive SMS messages is never a condition of purchase.
         </p>
       </section>
 

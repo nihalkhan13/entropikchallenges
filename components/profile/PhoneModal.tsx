@@ -155,8 +155,8 @@ export function PhoneModal({ onDone }: PhoneModalProps) {
             <span className="text-[10px] text-brand-gray/50 leading-relaxed group-hover:text-brand-gray/70 transition-colors">
               By checking this box, I agree to receive recurring SMS workout reminder
               messages from <strong className="text-brand-gray/70">Entropik</strong>.
-              Max 3 msgs/day. Msg &amp; data rates may apply.
-              Consent is not a condition of participation.
+              Messaging frequency may vary. Max 3 msgs/day. Msg &amp; data rates may apply.
+              Consent is not a condition of purchase.
               Reply <strong className="text-brand-gray/70">STOP</strong> to opt out,{" "}
               <strong className="text-brand-gray/70">HELP</strong> for help.{" "}
               <a href="/privacy" target="_blank" className="underline text-brand-teal/60 hover:text-brand-teal transition-colors">
