@@ -33,6 +33,9 @@ export default function AdminPage() {
   const [reportDate, setReportDate] = useState(
     () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" })
   )
+  const [testSmsPhone, setTestSmsPhone] = useState("")
+  const [sendingTestSms, setSendingTestSms] = useState(false)
+  const [testSmsMsg, setTestSmsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
 
   useEffect(() => {
     if (!isLoading) {
@@ -158,6 +161,35 @@ export default function AdminPage() {
     }
   }
 
+  // ─── Send test SMS ────────────────────────────────────────────────────────
+  const handleTestSms = async () => {
+    const digits = testSmsPhone.replace(/\D/g, "")
+    if (digits.length !== 10 && digits.length !== 11) {
+      setTestSmsMsg({ type: "err", text: "Enter a valid US phone number" })
+      return
+    }
+    const e164 = digits.length === 11 ? `+${digits}` : `+1${digits}`
+    setSendingTestSms(true)
+    setTestSmsMsg(null)
+    try {
+      const res = await fetch("/api/admin-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "test-sms", phone: e164 }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setTestSmsMsg({ type: "err", text: json.error ?? "Failed to send SMS" })
+      } else {
+        setTestSmsMsg({ type: "ok", text: `✓ Test SMS sent to ${e164}!` })
+      }
+    } catch (e: any) {
+      setTestSmsMsg({ type: "err", text: e.message ?? "Network error" })
+    } finally {
+      setSendingTestSms(false)
+    }
+  }
+
   // ─── Export CSV ───────────────────────────────────────────────────────────
   const exportCSV = async () => {
     const { data: checkins } = await supabase
@@ -212,6 +244,35 @@ export default function AdminPage() {
           disabled={sendingReport}
         >
           {sendingReport ? "Sending…" : "📊 Send Stats Report"}
+        </Button>
+      </Card>
+
+      {/* ── Test SMS ── */}
+      <Card>
+        <h2 className="text-lg font-bold text-white mb-1">Test SMS</h2>
+        <p className="text-xs text-brand-gray/60 mb-4">
+          Send a test text to any number to confirm Telnyx is working before your members get real reminders.
+        </p>
+        <div className="space-y-1 mb-4">
+          <label className="text-xs text-brand-gray uppercase tracking-widest">Phone Number</label>
+          <Input
+            type="tel"
+            value={testSmsPhone}
+            onChange={(e) => { setTestSmsPhone(e.target.value); setTestSmsMsg(null) }}
+            placeholder="e.g. 4155551234 or +14155551234"
+          />
+        </div>
+        {testSmsMsg && (
+          <p className={`text-xs mb-3 px-1 ${testSmsMsg.type === "ok" ? "text-brand-teal" : "text-red-400"}`}>
+            {testSmsMsg.text}
+          </p>
+        )}
+        <Button
+          onClick={handleTestSms}
+          variant="secondary"
+          disabled={sendingTestSms || !testSmsPhone}
+        >
+          {sendingTestSms ? "Sending…" : "💬 Send Test SMS"}
         </Button>
       </Card>
 

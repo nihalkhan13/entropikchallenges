@@ -24,9 +24,10 @@ function formatDisplay(d: string): string {
 
 export function PhoneModal({ onDone }: PhoneModalProps) {
   const { profile } = useAuth()
-  const [digits, setDigits] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState("")
+  const [digits, setDigits]         = useState("")
+  const [smsConsent, setSmsConsent] = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState("")
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Strip everything except digits, cap at 10
@@ -43,6 +44,12 @@ export function PhoneModal({ onDone }: PhoneModalProps) {
 
     setSaving(true)
     setError("")
+
+    if (!smsConsent) {
+      setError("Please check the box to agree to SMS reminders.")
+      setSaving(false)
+      return
+    }
 
     // Dev bypass: skip DB write so the modal can be tested locally
     if (DEV_BYPASS) {
@@ -137,11 +144,32 @@ export function PhoneModal({ onDone }: PhoneModalProps) {
             </p>
           </div>
 
+          {/* SMS consent checkbox — required by carriers, unchecked by default */}
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={smsConsent}
+              onChange={(e) => { setSmsConsent(e.target.checked); setError("") }}
+              className="mt-0.5 w-4 h-4 shrink-0 accent-brand-teal cursor-pointer"
+            />
+            <span className="text-[10px] text-brand-gray/50 leading-relaxed group-hover:text-brand-gray/70 transition-colors">
+              By checking this box, I agree to receive recurring SMS workout reminder
+              messages from <strong className="text-brand-gray/70">Entropik</strong>.
+              Max 3 msgs/day. Msg &amp; data rates may apply.
+              Consent is not a condition of participation.
+              Reply <strong className="text-brand-gray/70">STOP</strong> to opt out,{" "}
+              <strong className="text-brand-gray/70">HELP</strong> for help.{" "}
+              <a href="/privacy" target="_blank" className="underline text-brand-teal/60 hover:text-brand-teal transition-colors">
+                Privacy Policy
+              </a>
+            </span>
+          </label>
+
           {/* Actions */}
           <div className="flex flex-col gap-2">
             <button
               onClick={handleSave}
-              disabled={saving || digits.length !== 10}
+              disabled={saving || digits.length !== 10 || !smsConsent}
               className="w-full py-3 rounded-xl bg-brand-teal text-brand-dark text-sm font-extrabold tracking-tight hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? "Saving…" : "Enable SMS Reminders"}

@@ -32,16 +32,18 @@ interface EditProfileModalProps {
 
 export function EditProfileModal({ open, onClose, onSave }: EditProfileModalProps) {
   const { profile } = useAuth()
-  const [name, setName]     = useState("")
-  const [digits, setDigits] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState("")
+  const [name, setName]             = useState("")
+  const [digits, setDigits]         = useState("")
+  const [smsConsent, setSmsConsent] = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState("")
 
   // Sync fields every time the modal opens
   useEffect(() => {
     if (open && profile) {
       setName(profile.display_name ?? "")
       setDigits(e164ToDigits(profile.phone))
+      setSmsConsent(false)  // always reset — consent must be explicit each time a new number is added
       setError("")
     }
   }, [open, profile])
@@ -80,8 +82,15 @@ export function EditProfileModal({ open, onClose, onSave }: EditProfileModalProp
       return
     }
 
-    const prevPhone = profile?.phone ?? null
-    const newPhone  = digits.length === 10 ? `+1${digits}` : null
+    const prevPhone   = profile?.phone ?? null
+    const newPhone    = digits.length === 10 ? `+1${digits}` : null
+    const addingPhone = !prevPhone && newPhone  // brand-new opt-in
+
+    if (addingPhone && !smsConsent) {
+      setError("Please check the SMS consent box to enable text reminders.")
+      setSaving(false)
+      return
+    }
 
     const { error: dbErr } = await supabase
       .from("profiles")
@@ -184,6 +193,29 @@ export function EditProfileModal({ open, onClose, onSave }: EditProfileModalProp
                   US only · leave blank to opt out of SMS reminders
                 </p>
               </div>
+
+              {/* SMS consent — shown only when adding a phone number for the first time */}
+              {!profile?.phone && digits.length === 10 && (
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={smsConsent}
+                    onChange={(e) => { setSmsConsent(e.target.checked); setError("") }}
+                    className="mt-0.5 w-4 h-4 shrink-0 accent-brand-teal cursor-pointer"
+                  />
+                  <span className="text-[10px] text-brand-gray/50 leading-relaxed group-hover:text-brand-gray/70 transition-colors">
+                    I agree to receive recurring SMS workout reminders from{" "}
+                    <strong className="text-brand-gray/70">Entropik</strong>.
+                    Max 3 msgs/day. Msg &amp; data rates may apply.
+                    Consent is not a condition of participation.
+                    Reply <strong className="text-brand-gray/70">STOP</strong> to opt out,{" "}
+                    <strong className="text-brand-gray/70">HELP</strong> for help.{" "}
+                    <a href="/privacy" target="_blank" className="underline text-brand-teal/60 hover:text-brand-teal transition-colors">
+                      Privacy Policy
+                    </a>
+                  </span>
+                </label>
+              )}
 
               {error && (
                 <p className="text-xs text-red-400 px-0.5">{error}</p>

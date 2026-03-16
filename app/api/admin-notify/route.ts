@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { sendAdminEmail, emailWrap, emailH2, emailMeta, emailRow } from '@/lib/email'
+import { sendSms } from '@/lib/sms'
 import { getTodayPST, offsetDate } from '@/lib/challenge'
 import { DEFAULT_START_DATE, DEFAULT_DURATION_DAYS } from '@/lib/constants'
 
@@ -108,6 +109,31 @@ export async function POST(request: Request) {
         `),
       })
 
+      // Send SMS reminders to every non-completer who has a phone number
+      const smsRecipients = nonCompleters.filter((u: any) => u.phone)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://challenges.entropik.co'
+      const smsResults = await Promise.allSettled(
+        smsRecipients.map((u: any) =>
+          sendSms(
+            u.phone,
+            `Hey ${u.display_name}! 👋 You haven't logged your 2-min plank yet today. Check in here: ${appUrl}\n\nReply STOP to opt out.`,
+          )
+        )
+      )
+      const smsSent   = smsResults.filter(r => r.status === 'fulfilled').length
+      const smsFailed = smsResults.filter(r => r.status === 'rejected').length
+
+      return NextResponse.json({ success: true, smsSent, smsFailed })
+    }
+
+    // ── Test SMS (triggered from admin panel) ─────────────────────────────────
+    // Sends a single test message to a phone number you provide.
+    if (type === 'test-sms') {
+      const { phone } = body as { phone: string }
+      if (!phone) {
+        return NextResponse.json({ error: 'phone is required' }, { status: 400 })
+      }
+      await sendSms(phone, `✅ Telnyx is working! Your plank challenge SMS reminders are all set.`)
       return NextResponse.json({ success: true })
     }
 
