@@ -55,7 +55,7 @@ export function CheckInButton() {
     } else {
       // Immediately refresh CalendarGrid without waiting for realtime
       window.dispatchEvent(new CustomEvent('checkin-success'))
-      // Fire-and-forget: trigger Squad Pulse + streak milestone notifications
+      // Fire-and-forget: trigger push notifications + 50% milestone SMS check
       const notifyHeaders = { 'Content-Type': 'application/json' }
       fetch('/api/notify', {
         method: 'POST',
@@ -65,6 +65,12 @@ export function CheckInButton() {
       fetch('/api/notify', {
         method: 'POST',
         body: JSON.stringify({ type: 'streak-milestone', userId: profile.id }),
+        headers: notifyHeaders,
+      }).catch(() => {/* non-critical */})
+      // Check if ≥50% of squad has now checked in — sends milestone SMS if so (once/day)
+      fetch('/api/admin-notify', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'milestone-sms' }),
         headers: notifyHeaders,
       }).catch(() => {/* non-critical */})
     }

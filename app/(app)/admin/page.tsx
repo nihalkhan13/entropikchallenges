@@ -37,6 +37,13 @@ export default function AdminPage() {
   const [sendingTestSms, setSendingTestSms] = useState(false)
   const [testSmsMsg, setTestSmsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
 
+  const [sendingStreakSms, setSendingStreakSms] = useState(false)
+  const [streakSmsMsg, setStreakSmsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  const [sendingMilestoneSms, setSendingMilestoneSms] = useState(false)
+  const [milestoneSmsMsg, setMilestoneSmsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+  const [sendingEveningSms, setSendingEveningSms] = useState(false)
+  const [eveningSmsMsg, setEveningSmsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null)
+
   useEffect(() => {
     if (!isLoading) {
       if (!profile || !profile.is_admin) {
@@ -190,6 +197,71 @@ export default function AdminPage() {
     }
   }
 
+  // ─── SMS reminder triggers (manual) ─────────────────────────────────────
+  const handleStreakSms = async () => {
+    setSendingStreakSms(true)
+    setStreakSmsMsg(null)
+    try {
+      const res = await fetch("/api/cron/sms-streak", { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) {
+        setStreakSmsMsg({ type: "err", text: json.error ?? "Failed" })
+      } else {
+        setStreakSmsMsg({ type: "ok", text: `✓ Sent to ${json.sent} member${json.sent !== 1 ? "s" : ""} (${json.targets} eligible, ${json.failed} failed)` })
+      }
+    } catch (e: any) {
+      setStreakSmsMsg({ type: "err", text: e.message ?? "Network error" })
+    } finally {
+      setSendingStreakSms(false)
+    }
+  }
+
+  const handleMilestoneSms = async () => {
+    setSendingMilestoneSms(true)
+    setMilestoneSmsMsg(null)
+    try {
+      const res = await fetch("/api/admin-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "milestone-sms", force: true }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setMilestoneSmsMsg({ type: "err", text: json.error ?? "Failed" })
+      } else {
+        setMilestoneSmsMsg({ type: "ok", text: `✓ Milestone SMS sent to ${json.sent} member${json.sent !== 1 ? "s" : ""} (${json.failed} failed)` })
+      }
+    } catch (e: any) {
+      setMilestoneSmsMsg({ type: "err", text: e.message ?? "Network error" })
+    } finally {
+      setSendingMilestoneSms(false)
+    }
+  }
+
+  const handleEveningSms = async () => {
+    setSendingEveningSms(true)
+    setEveningSmsMsg(null)
+    try {
+      const res = await fetch("/api/cron/sms-evening", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setEveningSmsMsg({ type: "err", text: json.error ?? "Failed" })
+      } else if (json.skipped) {
+        setEveningSmsMsg({ type: "ok", text: `ℹ️ ${json.reason}` })
+      } else {
+        setEveningSmsMsg({ type: "ok", text: `✓ Sent to ${json.sent} member${json.sent !== 1 ? "s" : ""} (${json.failed} failed)` })
+      }
+    } catch (e: any) {
+      setEveningSmsMsg({ type: "err", text: e.message ?? "Network error" })
+    } finally {
+      setSendingEveningSms(false)
+    }
+  }
+
   // ─── Export CSV ───────────────────────────────────────────────────────────
   const exportCSV = async () => {
     const { data: checkins } = await supabase
@@ -274,6 +346,70 @@ export default function AdminPage() {
         >
           {sendingTestSms ? "Sending…" : "💬 Send Test SMS"}
         </Button>
+      </Card>
+
+      {/* ── SMS Reminders ── */}
+      <Card>
+        <h2 className="text-lg font-bold text-white mb-1">SMS Reminders</h2>
+        <p className="text-xs text-brand-gray/60 mb-5">
+          Manually trigger any of the three daily reminder types. Useful for testing before they run automatically via the scheduled cron jobs.
+        </p>
+
+        <div className="space-y-5">
+          {/* Streak reminder */}
+          <div className="space-y-2 pb-5 border-b border-white/5">
+            <div>
+              <p className="text-sm font-semibold text-white">🔥 Streak Reminder</p>
+              <p className="text-xs text-brand-gray/50 mt-0.5">
+                Sent at <strong className="text-brand-gray/70">10 am PDT</strong> daily. Targets members with a 2+ day streak who haven&apos;t checked in yet — urges them not to break it.
+              </p>
+            </div>
+            {streakSmsMsg && (
+              <p className={`text-xs px-1 ${streakSmsMsg.type === "ok" ? "text-brand-teal" : "text-red-400"}`}>
+                {streakSmsMsg.text}
+              </p>
+            )}
+            <Button onClick={handleStreakSms} variant="secondary" disabled={sendingStreakSms}>
+              {sendingStreakSms ? "Sending…" : "Send Streak Reminders Now"}
+            </Button>
+          </div>
+
+          {/* Milestone SMS */}
+          <div className="space-y-2 pb-5 border-b border-white/5">
+            <div>
+              <p className="text-sm font-semibold text-white">💪 50% Milestone SMS</p>
+              <p className="text-xs text-brand-gray/50 mt-0.5">
+                Fires automatically when half the squad checks in (before 6 pm). If this runs, the evening reminder is skipped that day. Forcing it here bypasses the 50% check and the once-per-day guard.
+              </p>
+            </div>
+            {milestoneSmsMsg && (
+              <p className={`text-xs px-1 ${milestoneSmsMsg.type === "ok" ? "text-brand-teal" : "text-red-400"}`}>
+                {milestoneSmsMsg.text}
+              </p>
+            )}
+            <Button onClick={handleMilestoneSms} variant="secondary" disabled={sendingMilestoneSms}>
+              {sendingMilestoneSms ? "Sending…" : "Force Send Milestone SMS"}
+            </Button>
+          </div>
+
+          {/* Evening reminder */}
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-white">⏰ Evening Reminder</p>
+              <p className="text-xs text-brand-gray/50 mt-0.5">
+                Sent at <strong className="text-brand-gray/70">6 pm PDT</strong> daily — but only if the milestone SMS was <em>not</em> already sent that day. Forcing it here always sends regardless.
+              </p>
+            </div>
+            {eveningSmsMsg && (
+              <p className={`text-xs px-1 ${eveningSmsMsg.type === "ok" ? "text-brand-teal" : "text-red-400"}`}>
+                {eveningSmsMsg.text}
+              </p>
+            )}
+            <Button onClick={handleEveningSms} variant="secondary" disabled={sendingEveningSms}>
+              {sendingEveningSms ? "Sending…" : "Force Send Evening Reminders"}
+            </Button>
+          </div>
+        </div>
       </Card>
 
       {/* ── Challenge Settings ── */}

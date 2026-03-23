@@ -126,6 +126,65 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, smsSent, smsFailed })
     }
 
+    // ── 50% milestone SMS ─────────────────────────────────────────────────────
+    // Called from CheckInButton (fire-and-forget) after every successful check-in.
+    // Sends a group-achievement SMS to non-completers when ≥50% have checked in.
+    // Deduped via challenge_settings key 'sms_milestone_date' — fires at most once/day.
+    // Pass force:true (from admin panel) to bypass the date guard for testing.
+    if (type === 'milestone-sms') {
+      const supabase = createSupabaseServiceClient()
+      const today    = getTodayPST()
+      const force    = (body as any).force ?? false
+
+      if (!force) {
+        // If milestone SMS was already sent today, bail immediately
+        const { data: milestoneSetting } = await supabase
+          .from('challenge_settings')
+          .select('value')
+          .eq('key', 'sms_milestone_date')
+          .maybeSingle()
+
+        if (milestoneSetting?.value === today) {
+          return NextResponse.json({ success: true, alreadySent: true })
+        }
+      }
+
+      const [{ data: allProfiles }, { data: checkinsToday }] = await Promise.all([
+        supabase.from('profiles').select('id, display_name, phone'),
+        supabase.from('checkins').select('user_id').eq('date', today),
+      ])
+
+      const total      = (allProfiles ?? []).length
+      const checkedIn  = (checkinsToday ?? []).length
+      const pct        = total > 0 ? Math.round((checkedIn / total) * 100) : 0
+
+      if (pct < 50 && !force) {
+        return NextResponse.json({ success: true, sent: 0, pct, reason: 'Below 50%' })
+      }
+
+      const checkedInIds = new Set((checkinsToday ?? []).map((c: any) => c.user_id))
+      const targets      = (allProfiles ?? []).filter((u: any) => u.phone && !checkedInIds.has(u.id))
+
+      // Mark as sent before sending to prevent duplicate batches from race conditions
+      await supabase
+        .from('challenge_settings')
+        .upsert({ key: 'sms_milestone_date', value: today }, { onConflict: 'key' })
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://challenges.entropik.co'
+      const smsResults = await Promise.allSettled(
+        targets.map((u: any) =>
+          sendSms(
+            u.phone,
+            `💪 Hey ${u.display_name}! Half the squad already crushed their plank today. Don't get left behind: ${appUrl}\n\nReply STOP to opt out.`,
+          )
+        )
+      )
+
+      const sent   = smsResults.filter((r) => r.status === 'fulfilled').length
+      const failed = smsResults.filter((r) => r.status === 'rejected').length
+      return NextResponse.json({ success: true, sent, failed, pct })
+    }
+
     // ── Test SMS (triggered from admin panel) ─────────────────────────────────
     // Sends a single test message to a phone number you provide.
     if (type === 'test-sms') {
